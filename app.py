@@ -398,23 +398,20 @@ with tab1:
     # ===== PART 4: STOCK COVER & INVENTORY EXPOSURE =====
     st.markdown("### 📦 4. Stock Cover & Inventory Exposure")
     
-    # Hitung stock cover
-    df_cover = df_a[['Item', 'Current Stock', 'Unit Cost']].copy()
+    # PENTING: Bersihkan nama kolom dari spasi tersembunyi agar tidak salah narik data
+    df_a.columns = df_a.columns.str.strip()
     
-    # Konversi numerik
-    df_cover['Current Stock'] = pd.to_numeric(df_cover['Current Stock'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
-    df_cover['Unit Cost'] = pd.to_numeric(df_cover['Unit Cost'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+    # Ambil data yang diperlukan
+    df_cover = df_a[['Item', 'Current Stock', 'Unit Cost', 'M1', 'M2', 'M3']].copy()
     
-    # Ambil forecast M1-M3 untuk rata-rata
-    df_cover['Avg_Forecast'] = 0
-    for i, row in df_cover.iterrows():
-        item = row['Item']
-        m1 = pd.to_numeric(df_a[df_a['Item'] == item]['M1'].values[0] if len(df_a[df_a['Item'] == item]) > 0 else 0, errors='coerce')
-        m2 = pd.to_numeric(df_a[df_a['Item'] == item]['M2'].values[0] if len(df_a[df_a['Item'] == item]) > 0 else 0, errors='coerce')
-        m3 = pd.to_numeric(df_a[df_a['Item'] == item]['M3'].values[0] if len(df_a[df_a['Item'] == item]) > 0 else 0, errors='coerce')
-        df_cover.loc[i, 'Avg_Forecast'] = (m1 + m2 + m3) / 3
+    # Konversi ke numerik secara aman (ubah string jadi angka)
+    for col in ['Current Stock', 'Unit Cost', 'M1', 'M2', 'M3']:
+        df_cover[col] = pd.to_numeric(df_cover[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
     
-    # Stock Cover (bulan)
+    # Hitung Forward-Looking Average Forecast (M1-M3)
+    df_cover['Avg_Forecast'] = (df_cover['M1'] + df_cover['M2'] + df_cover['M3']) / 3
+    
+    # Stock Cover (bulan) - Membagi Current Stock dengan Proyeksi M1-M3
     df_cover['Stock Cover (bulan)'] = df_cover.apply(
         lambda x: round(x['Current Stock'] / x['Avg_Forecast'], 1) if x['Avg_Forecast'] > 0 else 0,
         axis=1
@@ -423,30 +420,31 @@ with tab1:
     # Stock Cover (hari)
     df_cover['Stock Cover (hari)'] = (df_cover['Stock Cover (bulan)'] * 30).round(0)
     
-    # Status
+    # Status Logic
     def get_status(cover):
         if cover < 45:
-            return "🔴 KRITIS"
+            return "🔴 KRITIS (OOS Risk)"
         elif cover < 60:
             return "🟡 WASPADA"
         elif cover < 90:
             return "🟢 AMAN"
         else:
-            return "🔵 BERLEBIH"
+            return "🔵 OVERSTOCK"
     
     df_cover['Status'] = df_cover['Stock Cover (hari)'].apply(get_status)
     
     # Inventory Exposure (IDR)
     df_cover['Inventory Value'] = df_cover['Current Stock'] * df_cover['Unit Cost']
     
-    # Tampilkan
-    st.dataframe(
-        df_cover[['Item', 'Current Stock', 'Avg_Forecast', 'Stock Cover (bulan)', 'Stock Cover (hari)', 'Status', 'Inventory Value']],
-        use_container_width=True,
-        column_config={
-            "Inventory Value": st.column_config.NumberColumn(format="Rp %d")
-        }
-    )
+    # Siapkan tabel TAMPILAN (Ubah ke format string agar ada koma)
+    display_cover = df_cover[['Item', 'Current Stock', 'Avg_Forecast', 'Stock Cover (bulan)', 'Stock Cover (hari)', 'Status', 'Inventory Value']].copy()
+    
+    for col in ['Current Stock', 'Avg_Forecast', 'Stock Cover (hari)']:
+        display_cover[col] = display_cover[col].apply(lambda x: f"{x:,.0f}")
+        
+    display_cover['Inventory Value'] = display_cover['Inventory Value'].apply(lambda x: f"Rp {x:,.0f}")
+    
+    st.dataframe(display_cover, use_container_width=True, hide_index=True)
     
     # Summary metrics
     total_inventory = df_cover['Inventory Value'].sum()
@@ -458,24 +456,23 @@ with tab1:
     with col_met2:
         st.metric("📦 Total Stock (units)", f"{total_stock_units:,.0f}")
     with col_met3:
-        kritis_count = len(df_cover[df_cover['Status'] == '🔴 KRITIS'])
+        kritis_count = len(df_cover[df_cover['Status'].str.contains('KRITIS')])
         st.metric("⚠️ SKU Kritis", kritis_count)
     with col_met4:
-        aman_count = len(df_cover[df_cover['Status'] == '🟢 AMAN'])
+        aman_count = len(df_cover[df_cover['Status'].str.contains('AMAN')])
         st.metric("✅ SKU Aman", aman_count)
     
     # ===== PART 5: REKOMENDASI IMPORT PLAN =====
     st.markdown("### 🚢 5. Import Plan Recommendation (Cash Limit: IDR 4B | WH Capacity: 4,000 units)")
     
-    # Hitung kebutuhan order
+    # Persiapan Data Order
     df_order = df_a[['Item', 'Current Stock', 'Unit Cost', 'MOQ', 'M1', 'M2', 'M3']].copy()
     
-    # Konversi numerik
-    for col in df_order.columns:
-        if col != 'Item':
-            df_order[col] = pd.to_numeric(df_order[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+    # Konversi ke numerik
+    for col in ['Current Stock', 'Unit Cost', 'MOQ', 'M1', 'M2', 'M3']:
+        df_order[col] = pd.to_numeric(df_order[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
     
-    # Kebutuhan 3 bulan
+    # Kebutuhan 3 bulan & Defisit
     df_order['Kebutuhan_3M'] = df_order['M1'] + df_order['M2'] + df_order['M3']
     df_order['Defisit'] = df_order['Kebutuhan_3M'] - df_order['Current Stock']
     df_order['Defisit'] = df_order['Defisit'].apply(lambda x: max(0, x))
@@ -514,24 +511,22 @@ with tab1:
     
     df_order['Route'] = df_order.apply(get_route, axis=1)
     
-    # Tampilkan rekomendasi
+    # Siapkan tabel TAMPILAN (Format Koma)
     display_order = df_order[['Item', 'Current Stock', 'DOS', 'M1', 'Order_Qty', 'Air_Qty', 'Sea_Qty', 'Route', 'Total_Cost']].copy()
-    display_order['Total_Cost_B'] = (display_order['Total_Cost'] / 1_000_000_000).round(2)
+    display_order['Cost (B IDR)'] = (display_order['Total_Cost'] / 1_000_000_000).round(2)
     
-    st.dataframe(
-        display_order,
-        use_container_width=True,
-        column_config={
-            "DOS": "Cover (hari)",
-            "Total_Cost": st.column_config.NumberColumn(format="Rp %d"),
-            "Total_Cost_B": "Cost (B IDR)"
-        }
-    )
+    # Ubah format angka menjadi string berkoma
+    for col in ['Current Stock', 'DOS', 'M1', 'Order_Qty', 'Air_Qty', 'Sea_Qty']:
+        display_order[col] = display_order[col].apply(lambda x: f"{x:,.0f}")
+        
+    display_order['Total_Cost'] = display_order['Total_Cost'].apply(lambda x: f"Rp {x:,.0f}")
+    
+    st.dataframe(display_order, use_container_width=True, hide_index=True)
     
     # Summary rekomendasi
-    total_cost_b = display_order['Total_Cost_B'].sum()
-    total_air_qty = display_order['Air_Qty'].sum()
-    total_sea_qty = display_order['Sea_Qty'].sum()
+    total_cost_b = df_order['Total_Cost'].sum() / 1_000_000_000
+    total_air_qty = df_order['Air_Qty'].sum()
+    total_sea_qty = df_order['Sea_Qty'].sum()
     
     col_rec1, col_rec2, col_rec3 = st.columns(3)
     with col_rec1:
@@ -551,13 +546,13 @@ with tab1:
     if total_air_qty > 4000:
         st.error("🚨 **OVER CAPACITY!** Kedatangan via udara melebihi sisa kapasitas gudang 4.000 unit. Wajib Split Shipment!")
         
-    # --- TAMBAHAN BARU: JUSTIFIKASI PRIORITAS ---
+    # Justifikasi Prioritas
     st.markdown("#### 🎯 Prioritization Justification")
     st.markdown("""
     <div style='display: flex; gap: 15px; margin-bottom: 20px;'>
         <div style='flex: 1; background-color: #fef2f2; padding: 15px; border-radius: 8px; border-left: 5px solid #ef4444;'>
             <b style='color: #991b1b;'>1. PRIORITY 1: Device C (URGENT - AIR)</b><br>
-            <i>Kenapa?</i> Trend eksponensial menyebabkan risiko OOS bulan ini. Prioritas <b>3.000 unit via Udara</b> untuk mengisi kekosongan instan dan memaksimalkan sisa gudang (4.000 unit). Sisa order dikirim via Laut.
+            <i>Kenapa?</i> Trend eksponensial menyebabkan risiko OOS bulan ini. Prioritas <b>1.000 unit via Udara</b> untuk mengisi kekosongan instan dan memaksimalkan sisa gudang (4.000 unit). Sisa order dikirim via Laut.
         </div>
         <div style='flex: 1; background-color: #f0fdf4; padding: 15px; border-radius: 8px; border-left: 5px solid #22c55e;'>
             <b style='color: #166534;'>2. PRIORITY 2: Device A (SAFE - SEA)</b><br>
