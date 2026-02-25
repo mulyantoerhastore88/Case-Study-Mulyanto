@@ -661,21 +661,21 @@ with tab1:
 # ==========================================
 with tab2:
     st.markdown("### 💰 The 5 Billion Cash Unlock Masterplan")
-    st.warning("🎯 **Target: Unlock minimum IDR 5 Billion in 90 days**")
+    st.warning("🎯 **Target: Unlock minimum IDR 5 Miliar in 90 days**")
     
     # --- TAMBAHAN BARU: MASTERPLAN 5 MILIAR ---
-    st.markdown("#### 🚀 The 90-Day Liquidation Portfolio (Road to 5B)")
+    st.markdown("#### 🚀 The 90-Day Liquidation Portfolio (Road to 5 Miliar)")
     
-    # Data Masterplan sesuai pembahasan GSheet
+    # Data Masterplan (Diseragamkan menggunakan kata "Miliar")
     masterplan_data = pd.DataFrame({
-        'Category': ['Device Z (Dead Stock)', 'Other Dead Stock (18% of 25B - Z)', 'Slow Moving (35% of 25B)'],
-        'Inventory Value': ['Rp 1.10 B', 'Rp 3.40 B', 'Rp 8.75 B'],
+        'Category': ['Device Z (Dead Stock)', 'Other Dead Stock (18% of 25 Miliar - Z)', 'Slow Moving (35% of 25 Miliar)'],
+        'Inventory Value': ['Rp 1.10 Miliar', 'Rp 3.40 Miliar', 'Rp 8.75 Miliar'],
         'Proposed Strategy': ['Aggressive Bundling & Clearance (-30%)', 'B2B Wholesale / Export "Take-All"', 'E-Commerce Flash Sale (Double Day)'],
-        'Target Cash Unlock': [1100, 2500, 1400] # In Millions
+        'Target Cash Unlock (Miliar)': [1.1, 2.5, 1.4] 
     })
     
     # Visualisasi Progress Bar 5 Miliar
-    total_unlock_target = sum(masterplan_data['Target Cash Unlock'])
+    total_unlock_target = sum(masterplan_data['Target Cash Unlock (Miliar)'])
     
     col_mp1, col_mp2 = st.columns([2, 1])
     with col_mp1:
@@ -684,20 +684,21 @@ with tab2:
         fig_gauge_5b = go.Figure(go.Indicator(
             mode="gauge+number",
             value=total_unlock_target,
-            title={'text': "Total Cash Unlock (Rp Juta)"},
+            number={'valueformat': '.1f', 'prefix': 'Rp ', 'suffix': ' Miliar'},
+            title={'text': "Total Cash Unlock"},
             gauge={
-                'axis': {'range': [None, 6000]},
+                'axis': {'range': [None, 6]},
                 'bar': {'color': "#10b981"},
                 'steps': [
-                    {'range': [0, 5000], 'color': "#fee2e2"},
-                    {'range': [5000, 6000], 'color': "#dcfce7"}
+                    {'range': [0, 5], 'color': "#fee2e2"},
+                    {'range': [5, 6], 'color': "#dcfce7"}
                 ],
-                'threshold': {'line': {'color': "red", 'width': 4}, 'thickness': 0.75, 'value': 5000}
+                'threshold': {'line': {'color': "red", 'width': 4}, 'thickness': 0.75, 'value': 5}
             }
         ))
         fig_gauge_5b.update_layout(height=200, margin=dict(l=20, r=20, t=30, b=20))
         st.plotly_chart(fig_gauge_5b, use_container_width=True)
-        st.success("✅ **Target IDR 5B Terpenuhi!**")
+        st.success("✅ **Target IDR 5 Miliar Terpenuhi!**")
 
     st.markdown("---")
     
@@ -748,16 +749,16 @@ with tab2:
             <table style='width:100%'>
                 <tr><td>Harga Jual Estimasi</td><td><b>Rp {:,.0f}</b></td></tr>
                 <tr><td>Margin Normal</td><td><b style='color:{};'>{:.1f}%</b></td></tr>
-                <tr><td>Monthly Revenue</td><td><b>Rp {:.2f} M</b></td></tr>
-                <tr><td>Annual Potential</td><td><b>Rp {:.2f} M</b></td></tr>
+                <tr><td>Monthly Revenue</td><td><b>Rp {:,.0f} Juta</b></td></tr>
+                <tr><td>Annual Potential</td><td><b>Rp {:,.0f} Juta</b></td></tr>
             </table>
         </div>
         """.format(
             estimated_selling_price,
             '#22c55e' if normal_margin > 30 else '#eab308' if normal_margin > 15 else '#ef4444',
             normal_margin,
-            monthly_revenue/1e6,
-            annual_revenue_potential/1e6
+            monthly_revenue/1e6,  # Ditampilkan dalam Juta
+            annual_revenue_potential/1e6  # Ditampilkan dalam Juta
         ), unsafe_allow_html=True)
     
     with col_z_detail3:
@@ -772,16 +773,16 @@ with tab2:
         
         st.markdown("""
             <table style='width:100%'>
-                <tr><td>Natural Depletion</td><td><b style='color:#ef4444;'>{:.0f} months</b></td></tr>
-                <tr><td>Replacement Launch</td><td><b>3 months</b></td></tr>
+                <tr><td>Natural Depletion</td><td><b style='color:#ef4444;'>{:.0f} bulan</b></td></tr>
+                <tr><td>Replacement Launch</td><td><b>3 bulan</b></td></tr>
                 <tr><td>Stock at Launch</td><td><b>{:,} units</b></td></tr>
-                <tr><td>Value at Risk (if not sold)</td><td><b style='color:#ef4444;'>Rp {:.2f} M</b></td></tr>
+                <tr><td>Value at Risk</td><td><b style='color:#ef4444;'>Rp {:,.0f} Juta</b></td></tr>
             </table>
         </div>
         """.format(
             months_to_deplete,
             stock_at_launch,
-            value_at_risk/1e9
+            value_at_risk/1e6  # Ditampilkan dalam Juta agar konsisten
         ), unsafe_allow_html=True)
     
     # ===== MARGIN VS CASH TRADE-OFF SIMULATION =====
@@ -829,12 +830,12 @@ with tab2:
         results_trade = pd.DataFrame({
             'Metric': ['Revenue', 'HPP', 'Gross Profit', 'Margin %', 'Margin Erosion', 'Cash Unlock'],
             'Value': [
-                f"Rp {revenue/1e6:.0f} M",
-                f"Rp {cost/1e6:.0f} M",
-                f"Rp {gross_profit/1e6:.0f} M",
+                f"Rp {revenue/1e6:,.0f} Juta",
+                f"Rp {cost/1e6:,.0f} Juta",
+                f"Rp {gross_profit/1e6:,.0f} Juta",
                 f"{margin_after_discount:.1f}%",
-                f"Rp {margin_erosion/1e6:.0f} M (vs normal)",
-                f"Rp {revenue/1e6:.0f} M"
+                f"Rp {margin_erosion/1e6:,.0f} Juta (vs normal)",
+                f"Rp {revenue/1e6:,.0f} Juta"
             ]
         })
         st.dataframe(results_trade, use_container_width=True, hide_index=True)
@@ -877,7 +878,7 @@ with tab2:
     fig_tradeoff.add_trace(go.Scatter(
         x=discount_rates,
         y=cash_unlock,
-        name='Cash Unlock (Rp M)',
+        name='Cash Unlock (Juta Rp)',
         yaxis='y2',
         line=dict(color='#10b981', width=3, dash='dash'),
         mode='lines+markers'
@@ -893,7 +894,7 @@ with tab2:
         title=f"Trade-off Analysis: {units_to_liquidate:,} units Device Z",
         xaxis=dict(title="Discount Rate (%)"),
         yaxis=dict(title="Margin (%)", side="left", range=[0, 100]),
-        yaxis2=dict(title="Cash Unlock (Rp M)", side="right", overlaying="y", range=[0, max(cash_unlock)*1.1]),
+        yaxis2=dict(title="Cash Unlock (Juta Rp)", side="right", overlaying="y", range=[0, max(cash_unlock)*1.1]),
         hovermode='x unified',
         height=400
     )
@@ -918,9 +919,9 @@ with tab2:
         <h4 style='margin-top:0;'>📌 Kesimpulan untuk Device Z</h4>
         <p><b>Unit Cost:</b> Rp {unit_cost_z:,.0f} | <b>Estimasi Harga Jual Normal:</b> Rp {estimated_selling_price:,.0f} (margin {normal_margin:.1f}%)</p>
         <p><b>Strategi Terpilih:</b> Diskon {discount_rate}% untuk {units_to_liquidate:,} unit (Bundling dengan Liquid)</p>
-        <p><b>Hasil:</b> Cash Unlock Rp {revenue/1e6:.0f}M dengan margin {margin_after_discount:.1f}%</p>
+        <p><b>Hasil:</b> Cash Unlock <b style='color:#10b981;'>Rp {revenue/1e6:,.0f} Juta</b> dengan margin {margin_after_discount:.1f}%</p>
         <p><b style='color:{rec_color};'>{rec_text}</b></p>
-        <p><b>Trade-off Justification:</b> <i>"Mengorbankan margin Erosion senilai Rp {margin_erosion/1e6:.0f}M saat ini jauh lebih logis secara finansial daripada membiarkan nilai inventory Rp {value_at_risk/1e9:.2f} Miliar hangus menjadi nol (write-off) saat produk pengganti rilis 3 bulan lagi."</i></p>
+        <p><b>Trade-off Justification:</b> <i>"Mengorbankan margin (Erosion) senilai <b>Rp {margin_erosion/1e6:,.0f} Juta</b> saat ini jauh lebih logis secara finansial daripada membiarkan nilai inventory <b>Rp {value_at_risk/1e9:.2f} Miliar</b> hangus menjadi nol (write-off) saat produk pengganti rilis 3 bulan lagi."</i></p>
     </div>
     """, unsafe_allow_html=True)
 
