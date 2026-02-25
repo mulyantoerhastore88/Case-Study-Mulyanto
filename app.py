@@ -74,14 +74,18 @@ with tab1:
     st.markdown("## 📈 PART A: 6-MONTH FORECAST & REPLENISHMENT PLAN")
     st.markdown("---")
     
-    st.markdown("### 📐 1. Forecast Methodology")
+    st.markdown("### 📐 1. Forecast Methodology & Data Interpretation")
     
     with st.expander("📊 **Klik untuk melihat logika lengkap forecast**", expanded=True):
+        
+        # HEADER METODE
+        st.markdown("#### 🧮 Metode Forecast yang Digunakan")
+        
         col_logic1, col_logic2 = st.columns(2)
         
         with col_logic1:
             st.markdown("""
-            **🧮 Rumus Excel yang digunakan:**
+            **Rumus Excel di GSheet:**
             
             **1. Klasifikasi Model (Kolom T):**
             ```
@@ -94,50 +98,177 @@ with tab1:
             ```
             =ROUNDUP((Q2*0.6) + (P2*0.3) + (O2*0.1), 0)
             ```
-            - Des (60%) + Nov (30%) + Okt (10%)
+            - Desember (60%) + November (30%) + Oktober (10%)
             
             **3. M2-M6 - Mirror Growth:**
             ```
-            M2 = U2 × (G2/F2)  # Feb/Jan
-            M3 = V2 × (H2/G2)  # Mar/Feb
-            M4 = W2 × (I2/H2)  # Apr/Mar
-            M5 = X2 × (J2/I2)  # May/Apr
-            M6 = Y2 × (K2/J2)  # Jun/May
+            M2 = U2 × (G2/F2)  # Growth Feb/Jan
+            M3 = V2 × (H2/G2)  # Growth Mar/Feb
+            M4 = W2 × (I2/H2)  # Growth Apr/Mar
+            M5 = X2 × (J2/I2)  # Growth May/Apr
+            M6 = Y2 × (K2/J2)  # Growth Jun/May
             ```
             """)
         
         with col_logic2:
-        st.markdown("""
-        **📈 Interpretasi Data Historis:**
-        
-        | Item | Pola | Metode | Rationale |
-        |------|------|--------|-----------|
-        | **Device A** | Stabil (4.7K-5.4K) | Moving Average | Tidak ada trend signifikan, pola flat |
-        | **Device B** | Spike Apr-Mei (6.2K/5.8K) | **Seasonal** | **Pattern: Lonjakan Lebaran** - data dinormalisasi |
-        | **Device C** | Naik konsisten (900→3.1K) | **Linear Trend** | R² = 0.92, growth 200 unit/bulan |
-        
-        **🎯 3 Skenario:**
-        - **Base:** Forecast dengan data Device B sudah dinormalisasi
-        - **Aggressive (+20%):** Base × 1.2 (asumsi Lebaran kedua)
-        - **Downside (-20%):** Base × 0.8 (asumsi regulasi baru)
-        """)
-    
-    # TAMBAHKAN CHECKBOX UNTUK NORMALISASI
-    st.markdown("---")
-    col_norm1, col_norm2 = st.columns([1, 3])
-    with col_norm1:
-        normalize_b = st.checkbox("✅ Normalisasi Device B (Seasonal)", value=True)
-    with col_norm2:
-        if normalize_b:
-            st.info("""
-            **Data Device B telah dinormalisasi:**
-            - April: 6,200 → **3,150** (rata-rata Feb-Mar)
-            - Mei: 5,800 → **3,150**
-            - Forecast menjadi lebih stabil dan akurat
+            st.markdown("""
+            **Alasan Pemilihan Metode:**
+            
+            - **Moving Average:** Untuk data stabil tanpa trend (Device A)
+            - **Seasonal Detection:** Untuk data dengan pola berulang (Device B)
+            - **Linear Trend:** Untuk data dengan trend naik/turun konsisten (Device C)
+            
+            **Mirror Growth dipilih karena:**
+            - Menangkap pola musiman dari tahun sebelumnya
+            - Sederhana dan mudah dijelaskan ke management
+            - Cocok untuk FMCG dengan siklus tahunan
             """)
-        else:
-            st.warning("⚠️ Menggunakan data asli Device B (termasuk outlier). Risiko overstock lebih tinggi.")
-    
+        
+        st.markdown("---")
+        
+        # ===== INTERPRETASI DATA HISTORIS =====
+        st.markdown("#### 📈 Interpretasi Data Historis per SKU")
+        
+        # Buat tabel interpretasi dengan format yang lebih menarik
+        col_table1, col_table2, col_table3 = st.columns([1, 2, 3])
+        
+        # Header tabel
+        st.markdown("""
+        | Item | Pola Data | Metode | Rationale | Visual Pattern |
+        |------|-----------|--------|-----------|----------------|
+        """)
+        
+        # Device A
+        st.markdown("""
+        | **Device A** | Stabil (4.700 - 5.400 unit) | **Moving Average** | Tidak ada trend signifikan, pola flat sepanjang tahun | 📊▬▬▬▬▬ |
+        """)
+        
+        # Device B (dengan penjelasan seasonal)
+        st.markdown("""
+        | **Device B** | **Spike di Apr-Mei** (6.200 / 5.800) <br> Normal: 2.800 - 3.300 | **Seasonal Method** | **🔴 Pattern: Lonjakan saat Lebaran** <br> • April-Mei 2024: +100% dari normal <br> • Data dinormalisasi untuk forecast | 📈📊📈 |
+        """)
+        
+        # Device C
+        st.markdown("""
+        | **Device C** | **Naik Konsisten** (900 → 3.100) | **Linear Trend** | • R² = 0.92 (korelasi kuat) <br> • Growth 200 unit/bulan <br> • Produk dalam fase growth | 📈↗️↗️ |
+        """)
+        
+        st.markdown("---")
+        
+        # ===== NORMALISASI DEVICE B =====
+        st.markdown("#### 🎯 Normalisasi Data Device B (Seasonal Adjustment)")
+        
+        col_norm1, col_norm2 = st.columns([1, 1])
+        
+        with col_norm1:
+            # Toggle untuk normalisasi
+            normalize_b = st.radio(
+                "**Pilih Opsi Data Device B:**",
+                options=[
+                    "✅ Normalisasi (Asumsi Seasonal Lebaran) - RECOMMENDED",
+                    "⚠️ Gunakan Data Asli (Termasuk Outlier)"
+                ],
+                index=0
+            )
+            
+            if "Normalisasi" in normalize_b:
+                st.success("""
+                **Data Device B telah dinormalisasi:**
+                - April: 6,200 → **3,150** (rata-rata Feb-Mar)
+                - Mei: 5,800 → **3,150** 
+                - Forecast menjadi lebih stabil dan akurat
+                - Risiko overstock: **RENDAH**
+                """)
+            else:
+                st.warning("""
+                **Menggunakan data asli Device B:**
+                - April: 6,200 (outlier)
+                - Mei: 5,800 (outlier)
+                - Forecast akan overestimate
+                - Risiko overstock: **TINGGI**
+                """)
+        
+        with col_norm2:
+            # Visualisasi perbandingan
+            st.markdown("**Perbandingan Forecast:**")
+            
+            # Data sederhana
+            data_compare = pd.DataFrame({
+                'Bulan': ['Apr', 'Mei', 'Jun', 'Jul', 'Agu'],
+                'Asli': [6200, 5800, 3100, 2800, 2900],
+                'Normalisasi': [3150, 3150, 3100, 2800, 2900]
+            })
+            
+            fig_compare = px.line(
+                data_compare, 
+                x='Bulan', 
+                y=['Asli', 'Normalisasi'],
+                title="Dampak Normalisasi Device B",
+                markers=True,
+                color_discrete_map={'Asli': '#ef4444', 'Normalisasi': '#10b981'}
+            )
+            fig_compare.update_layout(height=250)
+            st.plotly_chart(fig_compare, use_container_width=True)
+        
+        st.markdown("---")
+        
+        # ===== 3 SKENARIO =====
+        st.markdown("#### 🎲 Tiga Skenario Forecast")
+        
+        col_scen1, col_scen2, col_scen3 = st.columns(3)
+        
+        with col_scen1:
+            st.markdown("""
+            <div style='background-color:#dbeafe; padding:15px; border-radius:10px; border-left:5px solid #3b82f6'>
+                <h4 style='color:#1e40af; margin:0'>📊 BASE SCENARIO</h4>
+                <p style='font-size:12px; margin:5px 0'>Asumsi Normal</p>
+                <hr style='margin:10px 0'>
+                <p><b>Forecast:</b> Hasil perhitungan rumus (data normalisasi)</p>
+                <p><b>Asumsi:</b> Tidak ada perubahan signifikan di pasar</p>
+                <p><b>Probabilitas:</b> 60%</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col_scen2:
+            st.markdown("""
+            <div style='background-color:#dcfce7; padding:15px; border-radius:10px; border-left:5px solid #10b981'>
+                <h4 style='color:#166534; margin:0'>📈 AGGRESSIVE (+20%)</h4>
+                <p style='font-size:12px; margin:5px 0'>Asumsi Optimis</p>
+                <hr style='margin:10px 0'>
+                <p><b>Forecast:</b> Base × 1.2</p>
+                <p><b>Asumsi:</b> Lebaran kedua, campaign besar, ekspansi pasar</p>
+                <p><b>Probabilitas:</b> 25%</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col_scen3:
+            st.markdown("""
+            <div style='background-color:#fee2e2; padding:15px; border-radius:10px; border-left:5px solid #ef4444'>
+                <h4 style='color:#991b1b; margin:0'>📉 DOWNSIDE (-20%)</h4>
+                <p style='font-size:12px; margin:5px 0'>Asumsi Konservatif</p>
+                <hr style='margin:10px 0'>
+                <p><b>Forecast:</b> Base × 0.8</p>
+                <p><b>Asumsi:</b> Regulasi baru, kompetitor agresif, ekonomi melambat</p>
+                <p><b>Probabilitas:</b> 15%</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # ===== KESIMPULAN METODOLOGI =====
+        st.markdown("""
+        <div style='background-color:#f8fafc; padding:20px; border-radius:10px; border:1px solid #cbd5e1'>
+            <h4 style='margin-top:0'>📌 Kesimpulan Metodologi Forecast</h4>
+            <ul>
+                <li><b>Device A:</b> Moving Average - stabil, tidak perlu adjustment</li>
+                <li><b>Device B:</b> Seasonal Method - data dinormalisasi untuk menghilangkan efek Lebaran</li>
+                <li><b>Device C:</b> Linear Trend - R² 0.92, growth konsisten 200 unit/bulan</li>
+                <li><b>3 Skenario:</b> Base (normal), Aggressive (+20%), Downside (-20%) untuk antisipasi berbagai kondisi pasar</li>
+            </ul>
+            <p style='margin-bottom:0; color:#475569'><i>Metode ini dipilih karena sederhana, mudah direplikasi di Excel, dan sesuai dengan karakteristik FMCG.</i></p>
+        </div>
+        """, unsafe_allow_html=True)
+        
     # ===== PART 2: 6-MONTH FORECAST TABLE =====
     st.markdown("### 📊 2. 6-Month Forecast (Base Scenario)")
     
