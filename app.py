@@ -175,8 +175,7 @@ with tab1:
                 st.success("""
                 **Data Device B telah dinormalisasi:**
                 - April: 6,200 → **3,150** (rata-rata Feb-Mar)
-                - Mei: 5,800 → **3,150** 
-                - Forecast menjadi lebih stabil dan akurat
+                - Mei: 5,800 → **3,150** - Forecast menjadi lebih stabil dan akurat
                 - Risiko overstock: **RENDAH**
                 """)
             else:
@@ -540,13 +539,36 @@ with tab1:
                  delta=f"Sisa: Rp {4 - total_cost_b:.2f} B",
                  delta_color="normal" if total_cost_b <= 4 else "inverse")
     with col_rec2:
-        st.metric("✈️ Air Freight (M1)", f"{total_air_qty:,.0f} units")
+        st.metric("✈️ Air Freight (M1 Incoming)", f"{total_air_qty:,.0f} units",
+                 delta=f"Sisa Gudang: {4000 - total_air_qty:,.0f} units",
+                 delta_color="normal" if total_air_qty <= 4000 else "inverse")
     with col_rec3:
-        st.metric("🚢 Sea Freight", f"{total_sea_qty:,.0f} units")
+        st.metric("🚢 Sea Freight (Tiba M2)", f"{total_sea_qty:,.0f} units")
     
-    # Alert jika over budget
+    # Alert Constraints (Budget & Gudang)
     if total_cost_b > 4:
-        st.error("🚨 **OVER BUDGET!** Total biaya melebihi limit IDR 4B. Rekomendasi: Kurangi air freight atau negosiasi split order.")
+        st.error("🚨 **OVER BUDGET!** Total biaya melebihi limit IDR 4B.")
+    if total_air_qty > 4000:
+        st.error("🚨 **OVER CAPACITY!** Kedatangan via udara melebihi sisa kapasitas gudang 4.000 unit. Wajib Split Shipment!")
+        
+    # --- TAMBAHAN BARU: JUSTIFIKASI PRIORITAS ---
+    st.markdown("#### 🎯 Prioritization Justification")
+    st.markdown("""
+    <div style='display: flex; gap: 15px; margin-bottom: 20px;'>
+        <div style='flex: 1; background-color: #fef2f2; padding: 15px; border-radius: 8px; border-left: 5px solid #ef4444;'>
+            <b style='color: #991b1b;'>1. PRIORITY 1: Device C (URGENT - AIR)</b><br>
+            <i>Kenapa?</i> Trend eksponensial menyebabkan risiko OOS bulan ini. Prioritas <b>3.000 unit via Udara</b> untuk mengisi kekosongan instan dan memaksimalkan sisa gudang (4.000 unit). Sisa order dikirim via Laut.
+        </div>
+        <div style='flex: 1; background-color: #f0fdf4; padding: 15px; border-radius: 8px; border-left: 5px solid #22c55e;'>
+            <b style='color: #166534;'>2. PRIORITY 2: Device A (SAFE - SEA)</b><br>
+            <i>Kenapa?</i> Stok meng-cover 1.5 bulan. Amankan stok M3 dengan order via Laut (hemat biaya, tidak memakan sisa gudang bulan ini).
+        </div>
+        <div style='flex: 1; background-color: #f8fafc; padding: 15px; border-radius: 8px; border-left: 5px solid #64748b;'>
+            <b style='color: #334155;'>3. PRIORITY 3: Device B (HOLD)</b><br>
+            <i>Kenapa?</i> Status Overstock (>3 bulan). Menahan order Device B adalah kunci kita bisa menyelamatkan Kas perusahaan di bawah limit 4 Miliar.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     # ===== PART 6: LIVE DEFENSE SIMULATION =====
     st.markdown("---")
@@ -637,7 +659,7 @@ with tab1:
         """)
     
     # Export ready note
-    st.caption("✅ Dashboard siap untuk presentasi & live defense Q&A")
+    st.caption("✅ Dashboard Ready")
 
 # ==========================================
 # TAB 2: DEAD STOCK & CASH UNLOCK
