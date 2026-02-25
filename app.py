@@ -463,8 +463,19 @@ with tab1:
         st.metric("✅ SKU Aman", aman_count)
     
     # ===== PART 5: REKOMENDASI IMPORT PLAN =====
-    st.markdown("### 🚢 5. Import Plan Recommendation (Cash Limit: IDR 4B | WH Capacity: 4,000 units)")
+    st.markdown("### 🚢 5. Import Plan & Cost Simulation")
     
+    # ⚙️ LOGISTIC SETTINGS (Menjawab poin Sea 10% dan Air 4x Cost)
+    with st.expander("⚙️ Logistik & Warehouse Constraints Settings", expanded=True):
+        col_log1, col_log2, col_log3 = st.columns(3)
+        with col_log1:
+            sea_cost_pct = st.number_input("Sea Freight Cost (%)", value=10, step=1) / 100
+        with col_log2:
+            air_cost_mult = st.number_input("Air Freight Multiplier (x Cost)", value=4.0, step=0.5)
+        with col_log3:
+            wh_utilization = st.progress(85, text="WH Utilization: 85% (51,000 / 60,000 units)")
+            st.caption("Sisa kapasitas aman untuk batch ini: **4,000 units**")
+
     # Persiapan Data Order
     df_order = df_a[['Item', 'Current Stock', 'Unit Cost', 'MOQ', 'M1', 'M2', 'M3']].copy()
     
@@ -472,189 +483,99 @@ with tab1:
     for col in ['Current Stock', 'Unit Cost', 'MOQ', 'M1', 'M2', 'M3']:
         df_order[col] = pd.to_numeric(df_order[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
     
-    # Kebutuhan 3 bulan & Defisit
     df_order['Kebutuhan_3M'] = df_order['M1'] + df_order['M2'] + df_order['M3']
     df_order['Defisit'] = df_order['Kebutuhan_3M'] - df_order['Current Stock']
     df_order['Defisit'] = df_order['Defisit'].apply(lambda x: max(0, x))
     
-    # Order quantity (kelipatan MOQ)
     df_order['Order_Qty'] = df_order.apply(
-        lambda x: int(np.ceil(x['Defisit'] / x['MOQ']) * x['MOQ']) if x['Defisit'] > 0 else 0,
-        axis=1
+        lambda x: int(np.ceil(x['Defisit'] / x['MOQ']) * x['MOQ']) if x['Defisit'] > 0 else 0, axis=1
     )
     
-    # Split logic (Air untuk yang kritis)
     df_order['DOS'] = df_cover['Stock Cover (hari)'].values
     df_order['Air_Qty'] = df_order.apply(
         lambda x: min(x['Order_Qty'], int(np.ceil(max(0, x['M1'] - x['Current Stock']) / 1000) * 1000))
-        if x['DOS'] < 45 and x['Order_Qty'] > 0 else 0,
-        axis=1
+        if x['DOS'] < 45 and x['Order_Qty'] > 0 else 0, axis=1
     )
     df_order['Sea_Qty'] = df_order['Order_Qty'] - df_order['Air_Qty']
     
-    # Cost calculation
-    air_multiplier = 4.0
-    df_order['Air_Cost'] = df_order['Air_Qty'] * df_order['Unit Cost'] * air_multiplier
-    df_order['Sea_Cost'] = df_order['Sea_Qty'] * df_order['Unit Cost'] * 1.1
+    # COST CALCULATION DENGAN VARIABEL DINAMIS
+    df_order['Air_Cost'] = df_order['Air_Qty'] * df_order['Unit Cost'] * air_cost_mult
+    df_order['Sea_Cost'] = df_order['Sea_Qty'] * df_order['Unit Cost'] * (1 + sea_cost_pct)
     df_order['Total_Cost'] = df_order['Air_Cost'] + df_order['Sea_Cost']
     
-    # Route decision
     def get_route(row):
-        if row['Air_Qty'] > 0 and row['Sea_Qty'] > 0:
-            return f"✈️ SPLIT: {row['Air_Qty']:,.0f} Air + {row['Sea_Qty']:,.0f} Sea"
-        elif row['Air_Qty'] > 0:
-            return "✈️ AIR (URGENT)"
-        elif row['Sea_Qty'] > 0:
-            return "🚢 SEA"
-        else:
-            return "⏸️ TUNDA"
+        if row['Air_Qty'] > 0 and row['Sea_Qty'] > 0: return f"✈️ SPLIT: {row['Air_Qty']:,.0f} Air + {row['Sea_Qty']:,.0f} Sea"
+        elif row['Air_Qty'] > 0: return "✈️ AIR (URGENT)"
+        elif row['Sea_Qty'] > 0: return "🚢 SEA"
+        else: return "⏸️ TUNDA"
     
     df_order['Route'] = df_order.apply(get_route, axis=1)
     
-    # Siapkan tabel TAMPILAN (Format Koma)
     display_order = df_order[['Item', 'Current Stock', 'DOS', 'M1', 'Order_Qty', 'Air_Qty', 'Sea_Qty', 'Route', 'Total_Cost']].copy()
-    display_order['Cost (B IDR)'] = (display_order['Total_Cost'] / 1_000_000_000).round(2)
-    
-    # Ubah format angka menjadi string berkoma
     for col in ['Current Stock', 'DOS', 'M1', 'Order_Qty', 'Air_Qty', 'Sea_Qty']:
         display_order[col] = display_order[col].apply(lambda x: f"{x:,.0f}")
-        
     display_order['Total_Cost'] = display_order['Total_Cost'].apply(lambda x: f"Rp {x:,.0f}")
     
     st.dataframe(display_order, use_container_width=True, hide_index=True)
     
-    # Summary rekomendasi
-    total_cost_b = df_order['Total_Cost'].sum() / 1_000_000_000
-    total_air_qty = df_order['Air_Qty'].sum()
-    total_sea_qty = df_order['Sea_Qty'].sum()
-    
-    col_rec1, col_rec2, col_rec3 = st.columns(3)
-    with col_rec1:
-        st.metric("💰 Total Import Cost", f"Rp {total_cost_b:.2f} B", 
-                 delta=f"Sisa: Rp {4 - total_cost_b:.2f} B",
-                 delta_color="normal" if total_cost_b <= 4 else "inverse")
-    with col_rec2:
-        st.metric("✈️ Air Freight (M1 Incoming)", f"{total_air_qty:,.0f} units",
-                 delta=f"Sisa Gudang: {4000 - total_air_qty:,.0f} units",
-                 delta_color="normal" if total_air_qty <= 4000 else "inverse")
-    with col_rec3:
-        st.metric("🚢 Sea Freight (Tiba M2)", f"{total_sea_qty:,.0f} units")
-    
-    # Alert Constraints (Budget & Gudang)
-    if total_cost_b > 4:
-        st.error("🚨 **OVER BUDGET!** Total biaya melebihi limit IDR 4B.")
-    if total_air_qty > 4000:
-        st.error("🚨 **OVER CAPACITY!** Kedatangan via udara melebihi sisa kapasitas gudang 4.000 unit. Wajib Split Shipment!")
-        
-    # Justifikasi Prioritas
-    st.markdown("#### 🎯 Prioritization Justification")
-    st.markdown("""
-    <div style='display: flex; gap: 15px; margin-bottom: 20px;'>
-        <div style='flex: 1; background-color: #fef2f2; padding: 15px; border-radius: 8px; border-left: 5px solid #ef4444;'>
-            <b style='color: #991b1b;'>1. PRIORITY 1: Device C (URGENT - AIR)</b><br>
-            <i>Kenapa?</i> Trend eksponensial menyebabkan risiko OOS bulan ini. Prioritas <b>1.000 unit via Udara</b> untuk mengisi kekosongan instan dan memaksimalkan sisa gudang (4.000 unit). Sisa order dikirim via Laut.
-        </div>
-        <div style='flex: 1; background-color: #f0fdf4; padding: 15px; border-radius: 8px; border-left: 5px solid #22c55e;'>
-            <b style='color: #166534;'>2. PRIORITY 2: Device A (SAFE - SEA)</b><br>
-            <i>Kenapa?</i> Stok meng-cover 1.5 bulan. Amankan stok M3 dengan order via Laut (hemat biaya, tidak memakan sisa gudang bulan ini).
-        </div>
-        <div style='flex: 1; background-color: #f8fafc; padding: 15px; border-radius: 8px; border-left: 5px solid #64748b;'>
-            <b style='color: #334155;'>3. PRIORITY 3: Device B (HOLD)</b><br>
-            <i>Kenapa?</i> Status Overstock (>3 bulan). Menahan order Device B adalah kunci kita bisa menyelamatkan Kas perusahaan di bawah limit 4 Miliar.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # ===== PART 6: LIVE DEFENSE SIMULATION =====
+    # ===== PART 6: LIVE DEFENSE SCENARIO SIMULATION =====
     st.markdown("---")
-    st.markdown("## 🎯 LIVE DEFENSE SCENARIO SIMULATION")
-    st.info("Geser slider di bawah untuk simulasi perubahan asumsi manajemen (cash turun / kapasitas gudang berkurang)")
+    st.markdown("## 🎯 PART D: LIVE DEFENSE SCENARIO SIMULATION")
+    st.info("Manajemen sering memberikan konstrain mendadak saat presentasi. Pilih skenario di bawah ini untuk simulasi *real-time*.")
+    
+    # PRESET SCENARIO BUTTONS
+    scenario_type = st.radio(
+        "⚡ Quick Scenario Presets (Sesuai Asumsi Management):",
+        ["1️⃣ Normal (Base Plan)", 
+         "2️⃣ Cash Reduced by 30% (Budget dipotong jadi 2.8 Miliar)", 
+         "3️⃣ WH Capacity Reduced to 2,000 units", 
+         "4️⃣ Campaign Pulled Forward (+30% Demand M1)"],
+        horizontal=True
+    )
+    
+    # Logic untuk mengatur variabel berdasarkan preset
+    sim_budget = 4.0
+    sim_wh = 4000
+    sim_demand = 0
+    
+    if "Cash Reduced" in scenario_type: sim_budget = 2.8
+    elif "WH Capacity" in scenario_type: sim_wh = 2000
+    elif "Campaign" in scenario_type: sim_demand = 30
     
     col_s1, col_s2, col_s3 = st.columns(3)
-    with col_s1:
-        scenario_growth = st.slider("📈 Demand Adjustment (%)", -30, 50, 0, 5)
-    with col_s2:
-        budget_limit = st.number_input("💰 Budget Limit (B IDR)", 1.0, 10.0, 4.0, 0.5)
-    with col_s3:
-        wh_capacity = st.number_input("🏭 WH Capacity Left", 1000, 10000, 4000, 500)
+    with col_s1: scenario_growth = st.slider("📈 Demand Adj (%)", -30, 50, sim_demand, 5, disabled=("Campaign" in scenario_type))
+    with col_s2: budget_limit = st.number_input("💰 Budget (B IDR)", 1.0, 10.0, sim_budget, 0.5, disabled=("Cash" in scenario_type))
+    with col_s3: wh_capacity = st.number_input("🏭 WH Cap Left", 1000, 10000, sim_wh, 500, disabled=("WH" in scenario_type))
     
-    # Terapkan skenario
+    # RE-CALCULATE LIVE
     multiplier = 1 + (scenario_growth / 100)
-    
     df_live = df_order.copy()
     df_live['M1_Sim'] = df_live['M1'] * multiplier
     df_live['M2_Sim'] = df_live['M2'] * multiplier
     df_live['M3_Sim'] = df_live['M3'] * multiplier
-    df_live['Kebutuhan_Sim'] = df_live['M1_Sim'] + df_live['M2_Sim'] + df_live['M3_Sim']
-    df_live['Defisit_Sim'] = df_live['Kebutuhan_Sim'] - df_live['Current Stock']
+    df_live['Defisit_Sim'] = (df_live['M1_Sim'] + df_live['M2_Sim'] + df_live['M3_Sim']) - df_live['Current Stock']
     df_live['Defisit_Sim'] = df_live['Defisit_Sim'].apply(lambda x: max(0, x))
+    df_live['Order_Sim'] = df_live.apply(lambda x: int(np.ceil(x['Defisit_Sim'] / x['MOQ']) * x['MOQ']) if x['Defisit_Sim'] > 0 else 0, axis=1)
     
-    # Order ulang
-    df_live['Order_Sim'] = df_live.apply(
-        lambda x: int(np.ceil(x['Defisit_Sim'] / x['MOQ']) * x['MOQ']) if x['Defisit_Sim'] > 0 else 0,
-        axis=1
-    )
-    
-    # Split ulang
     df_live['DOS_Sim'] = df_live['Current Stock'] / ((df_live['M1_Sim'] + df_live['M2_Sim'] + df_live['M3_Sim'])/3) * 30
-    df_live['Air_Sim'] = df_live.apply(
-        lambda x: min(x['Order_Sim'], int(np.ceil(max(0, x['M1_Sim'] - x['Current Stock']) / 1000) * 1000))
-        if x['DOS_Sim'] < 45 and x['Order_Sim'] > 0 else 0,
-        axis=1
-    )
+    df_live['Air_Sim'] = df_live.apply(lambda x: min(x['Order_Sim'], int(np.ceil(max(0, x['M1_Sim'] - x['Current Stock']) / 1000) * 1000)) if x['DOS_Sim'] < 45 and x['Order_Sim'] > 0 else 0, axis=1)
     df_live['Sea_Sim'] = df_live['Order_Sim'] - df_live['Air_Sim']
     
-    # Cost ulang
-    df_live['Cost_Sim'] = (df_live['Air_Sim'] * df_live['Unit Cost'] * air_multiplier + 
-                           df_live['Sea_Sim'] * df_live['Unit Cost'] * 1.1) / 1_000_000_000
+    df_live['Cost_Sim'] = (df_live['Air_Sim'] * df_live['Unit Cost'] * air_cost_mult + df_live['Sea_Sim'] * df_live['Unit Cost'] * (1+sea_cost_pct)) / 1_000_000_000
     
-    # Tampilkan hasil live
-    st.markdown("#### 📊 Adjusted Plan dengan Asumsi Baru")
-    
-    display_live = df_live[['Item', 'Current Stock', 'DOS_Sim', 'M1_Sim', 'Order_Sim', 'Air_Sim', 'Sea_Sim', 'Cost_Sim']].copy()
-    display_live['DOS_Sim'] = display_live['DOS_Sim'].round(0)
-    display_live['M1_Sim'] = display_live['M1_Sim'].round(0)
-    
-    st.dataframe(display_live, use_container_width=True)
-    
-    # Validasi
     total_cost_live = df_live['Cost_Sim'].sum()
     total_wh_live = df_live['Air_Sim'].sum()
     
-    col_v1, col_v2, col_v3, col_v4 = st.columns(4)
+    col_v1, col_v2 = st.columns(2)
     with col_v1:
-        st.metric("💰 Total Cost", f"Rp {total_cost_live:.2f} B", 
-                 delta=f"Limit: {budget_limit:.1f} B",
-                 delta_color="normal" if total_cost_live <= budget_limit else "inverse")
+        st.metric("💰 Live Sim Cost", f"Rp {total_cost_live:.2f} Miliar", delta=f"Limit: {budget_limit:.1f} Miliar", delta_color="normal" if total_cost_live <= budget_limit else "inverse")
     with col_v2:
-        st.metric("🏭 WH Incoming", f"{total_wh_live:,.0f} units",
-                 delta=f"Cap: {wh_capacity:,.0f}",
-                 delta_color="normal" if total_wh_live <= wh_capacity else "inverse")
-    with col_v3:
-        st.metric("💵 Sisa Kas", f"Rp {budget_limit - total_cost_live:.2f} B")
-    with col_v4:
-        st.metric("📦 Sisa Gudang", f"{wh_capacity - total_wh_live:,.0f} units")
-    
-    # Final recommendation
-    st.markdown("#### ✅ Final Recommendation")
-    
-    if total_cost_live <= budget_limit and total_wh_live <= wh_capacity:
-        st.success("""
-        **Plan ini AMAN untuk dieksekusi:**
-        - Budget terpenuhi
-        - Kapasitas gudang mencukupi
-        - SKU kritis (Device C) diutamakan dengan air freight
-        """)
+        st.metric("🏭 Live WH Incoming", f"{total_wh_live:,.0f} units", delta=f"Cap: {wh_capacity:,.0f}", delta_color="normal" if total_wh_live <= wh_capacity else "inverse")
+        
+    if total_cost_live > budget_limit or total_wh_live > wh_capacity:
+        st.error("🚨 **SISTEM MENDETEKSI PELANGGARAN CONSTRAINT!** Anda harus mengurangi Demand Adj atau Negosiasi Drop-Shipment.")
     else:
-        st.error("""
-        **Plan perlu PENYESUAIAN:**
-        - Prioritaskan hanya Device C untuk air freight
-        - Device A negosiasi split order (kirim 3.000 air, sisanya laut)
-        - Device B tunda order
-        """)
-    
-    # Export ready note
-    st.caption("✅ Dashboard Ready")
+        st.success("✅ Dashboard Ready")
 
 # ==========================================
 # TAB 2: DEAD STOCK & CASH UNLOCK
