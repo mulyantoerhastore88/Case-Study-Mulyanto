@@ -660,7 +660,46 @@ with tab1:
 # TAB 2: DEAD STOCK & CASH UNLOCK
 # ==========================================
 with tab2:
-    # ... (setelah breakdown inventory IDR 25B) ...
+    st.markdown("### 💰 The 5 Billion Cash Unlock Masterplan")
+    st.warning("🎯 **Target: Unlock minimum IDR 5 Billion in 90 days**")
+    
+    # --- TAMBAHAN BARU: MASTERPLAN 5 MILIAR ---
+    st.markdown("#### 🚀 The 90-Day Liquidation Portfolio (Road to 5B)")
+    
+    # Data Masterplan sesuai pembahasan GSheet
+    masterplan_data = pd.DataFrame({
+        'Category': ['Device Z (Dead Stock)', 'Other Dead Stock (18% of 25B - Z)', 'Slow Moving (35% of 25B)'],
+        'Inventory Value': ['Rp 1.10 B', 'Rp 3.40 B', 'Rp 8.75 B'],
+        'Proposed Strategy': ['Aggressive Bundling & Clearance (-30%)', 'B2B Wholesale / Export "Take-All"', 'E-Commerce Flash Sale (Double Day)'],
+        'Target Cash Unlock': [1100, 2500, 1400] # In Millions
+    })
+    
+    # Visualisasi Progress Bar 5 Miliar
+    total_unlock_target = sum(masterplan_data['Target Cash Unlock'])
+    
+    col_mp1, col_mp2 = st.columns([2, 1])
+    with col_mp1:
+        st.dataframe(masterplan_data, use_container_width=True, hide_index=True)
+    with col_mp2:
+        fig_gauge_5b = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=total_unlock_target,
+            title={'text': "Total Cash Unlock (Rp Juta)"},
+            gauge={
+                'axis': {'range': [None, 6000]},
+                'bar': {'color': "#10b981"},
+                'steps': [
+                    {'range': [0, 5000], 'color': "#fee2e2"},
+                    {'range': [5000, 6000], 'color': "#dcfce7"}
+                ],
+                'threshold': {'line': {'color': "red", 'width': 4}, 'thickness': 0.75, 'value': 5000}
+            }
+        ))
+        fig_gauge_5b.update_layout(height=200, margin=dict(l=20, r=20, t=30, b=20))
+        st.plotly_chart(fig_gauge_5b, use_container_width=True)
+        st.success("✅ **Target IDR 5B Terpenuhi!**")
+
+    st.markdown("---")
     
     st.markdown("### 📱 Device Z - Detailed Analysis")
     
@@ -758,7 +797,7 @@ with tab2:
             "Jumlah unit yang akan dilikuidasi",
             min_value=1000,
             max_value=12000,
-            value=5000,
+            value=12000, # Set default ke 12000 agar habis
             step=1000,
             key="units_z"
         )
@@ -767,7 +806,7 @@ with tab2:
             "Diskon yang diberikan (%)",
             min_value=10,
             max_value=70,
-            value=40,
+            value=30, # Set default 30% sesuai masterplan
             step=5,
             key="discount_z"
         )
@@ -875,19 +914,23 @@ with tab2:
         rec_text = "Margin sangat rendah - hanya untuk likuidasi darurat"
     
     st.markdown(f"""
-    <div style='background-color:#f8fafc; padding:20px; border-radius:10px; border-left:5px solid {rec_color};'>
+    <div style='background-color:#f8fafc; padding:20px; border-radius:10px; border-left:5px solid {rec_color}; margin-bottom: 20px;'>
         <h4 style='margin-top:0;'>📌 Kesimpulan untuk Device Z</h4>
         <p><b>Unit Cost:</b> Rp {unit_cost_z:,.0f} | <b>Estimasi Harga Jual Normal:</b> Rp {estimated_selling_price:,.0f} (margin {normal_margin:.1f}%)</p>
-        <p><b>Strategi Terpilih:</b> Diskon {discount_rate}% untuk {units_to_liquidate:,} unit</p>
+        <p><b>Strategi Terpilih:</b> Diskon {discount_rate}% untuk {units_to_liquidate:,} unit (Bundling dengan Liquid)</p>
         <p><b>Hasil:</b> Cash Unlock Rp {revenue/1e6:.0f}M dengan margin {margin_after_discount:.1f}%</p>
         <p><b style='color:{rec_color};'>{rec_text}</b></p>
-        <p><b>Rekomendasi:</b> 
-        {'✅ Diskon ini aman, margin masih >20%' if margin_after_discount > 20 else 
-         '⚠️ Diskon ini moderate, pertimbangkan bundle dengan produk margin tinggi' if margin_after_discount > 10 else 
-         '🔴 Diskon ini agresif, hanya untuk likuidasi cepat sebelum produk baru launch'}
-        </p>
+        <p><b>Trade-off Justification:</b> <i>"Mengorbankan margin Erosion senilai Rp {margin_erosion/1e6:.0f}M saat ini jauh lebih logis secara finansial daripada membiarkan nilai inventory Rp {value_at_risk/1e9:.2f} Miliar hangus menjadi nol (write-off) saat produk pengganti rilis 3 bulan lagi."</i></p>
     </div>
     """, unsafe_allow_html=True)
+
+    # --- TAMBAHAN BARU: GOVERNANCE (SOP) ---
+    st.markdown("#### 🛡️ Proposed Portfolio Clean-up Governance")
+    st.info("SOP untuk mencegah kejadian Overstock Device Z terulang di masa depan.")
+    st.markdown("""
+    * **Phase-Out Trigger (T-4 Months):** Segala bentuk aktivitas *Import / Procurement* untuk produk kategori lama wajib dihentikan **4 bulan** sebelum tanggal peluncuran (*launching*) produk generasi pengganti.
+    * **Auto-Clearance Mandate (T-2 Months):** Jika pada H-60 hari sebelum peluncuran produk baru masih terdapat stok produk lama yang melebihi *cover* 2 bulan, tim *Marketing & Sales* diizinkan secara sistem untuk mengeksekusi *Bundling Promo* (hingga batas margin minimum 15%) **tanpa memerlukan eskalasi / approval berlapis dari Manajemen**.
+    """)
 
 # ==========================================
 # TAB 3: S&OP RESTRUCTURE DESIGN (FIXED)
