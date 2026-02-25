@@ -107,20 +107,36 @@ with tab1:
             """)
         
         with col_logic2:
-            st.markdown("""
-            **📈 Interpretasi Data Historis:**
-            
-            | Item | Pola | Metode | Rationale |
-            |------|------|--------|-----------|
-            | **Device A** | Stabil (4.7K-5.4K) | Moving Average | Tidak ada trend signifikan |
-            | **Device B** | Spike Apr-Mei | Moving Average (excl outlier) | Anomali campaign, exclude dari trend |
-            | **Device C** | Naik konsisten | Linear Trend | R² = 0.92, growth 200 unit/bulan |
-            
-            **🎯 3 Skenario:**
-            - **Base Scenario:** Forecast asli dari rumus
-            - **Aggressive (+20%):** Base × 1.2 (optimis)
-            - **Downside (-20%):** Base × 0.8 (konservatif)
+        st.markdown("""
+        **📈 Interpretasi Data Historis:**
+        
+        | Item | Pola | Metode | Rationale |
+        |------|------|--------|-----------|
+        | **Device A** | Stabil (4.7K-5.4K) | Moving Average | Tidak ada trend signifikan, pola flat |
+        | **Device B** | Spike Apr-Mei (6.2K/5.8K) | **Seasonal** | **Pattern: Lonjakan Lebaran** - data dinormalisasi |
+        | **Device C** | Naik konsisten (900→3.1K) | **Linear Trend** | R² = 0.92, growth 200 unit/bulan |
+        
+        **🎯 3 Skenario:**
+        - **Base:** Forecast dengan data Device B sudah dinormalisasi
+        - **Aggressive (+20%):** Base × 1.2 (asumsi Lebaran kedua)
+        - **Downside (-20%):** Base × 0.8 (asumsi regulasi baru)
+        """)
+    
+    # TAMBAHKAN CHECKBOX UNTUK NORMALISASI
+    st.markdown("---")
+    col_norm1, col_norm2 = st.columns([1, 3])
+    with col_norm1:
+        normalize_b = st.checkbox("✅ Normalisasi Device B (Seasonal)", value=True)
+    with col_norm2:
+        if normalize_b:
+            st.info("""
+            **Data Device B telah dinormalisasi:**
+            - April: 6,200 → **3,150** (rata-rata Feb-Mar)
+            - Mei: 5,800 → **3,150**
+            - Forecast menjadi lebih stabil dan akurat
             """)
+        else:
+            st.warning("⚠️ Menggunakan data asli Device B (termasuk outlier). Risiko overstock lebih tinggi.")
     
     # ===== PART 2: 6-MONTH FORECAST TABLE =====
     st.markdown("### 📊 2. 6-Month Forecast (Base Scenario)")
