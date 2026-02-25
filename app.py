@@ -660,90 +660,234 @@ with tab1:
 # TAB 2: DEAD STOCK & CASH UNLOCK
 # ==========================================
 with tab2:
-    st.markdown("### 💰 The 5 Billion Cash Unlock Masterplan")
-    st.warning("🎯 **Target: Unlock minimum IDR 5 Billion in 90 days**")
+    # ... (setelah breakdown inventory IDR 25B) ...
     
-    # Device Z Status (hardcoded karena data dari case study)
-    col_z1, col_z2 = st.columns(2)
+    st.markdown("### 📱 Device Z - Detailed Analysis")
     
-    with col_z1:
+    col_z_detail1, col_z_detail2, col_z_detail3 = st.columns(3)
+    
+    # Data Device Z
+    stock_z = 12000
+    inv_value_z = 1.1e9  # Rp 1.1 Miliar
+    unit_cost_z = inv_value_z / stock_z  # Rp 91,667
+    monthly_sales_z = 500
+    
+    with col_z_detail1:
         st.markdown("""
-        <div class='card card-alert'>
-            <h4>📱 Device Z Status</h4>
+        <div style='background-color:#f8fafc; padding:15px; border-radius:8px; border:1px solid #cbd5e1;'>
+            <h4 style='margin-top:0; color:#334155;'>📊 Stock & Value</h4>
             <table style='width:100%'>
-                <tr><td>Current Stock</td><td><b>12,000 units</b></td></tr>
-                <tr><td>Monthly Sales</td><td><b>500 units</b></td></tr>
-                <tr><td>Stock Value</td><td><b>Rp 1.1 Billion</b></td></tr>
-                <tr><td>Depletion Time</td><td><b style='color:red;'>24 Months ⚠️</b></td></tr>
-                <tr><td>Replacement Launch</td><td><b>3 Months</b></td></tr>
+                <tr><td>Current Stock</td><td><b>{:,} units</b></td></tr>
+                <tr><td>Inventory Value</td><td><b>Rp {:.2f} Miliar</b></td></tr>
+                <tr><td>Unit Cost (HPP)</td><td><b>Rp {:,.0f}</b></td></tr>
             </table>
         </div>
+        """.format(stock_z, inv_value_z/1e9, unit_cost_z), unsafe_allow_html=True)
+    
+    # Estimasi harga jual (kita buat slider untuk simulasi)
+    with col_z_detail2:
+        st.markdown("""
+        <div style='background-color:#f8fafc; padding:15px; border-radius:8px; border:1px solid #cbd5e1;'>
+            <h4 style='margin-top:0; color:#334155;'>💰 Sales & Margin</h4>
         """, unsafe_allow_html=True)
         
-        # Depletion Calculator
-        st.markdown("#### 📉 Without Intervention")
-        months = list(range(1, 25))
-        stock_left = [max(0, 12000 - 500 * m) for m in months]
-        
-        fig_depletion = px.line(
-            x=months, y=stock_left,
-            title="Natural Depletion Timeline",
-            labels={'x': 'Month', 'y': 'Stock (units)'}
+        estimated_selling_price = st.slider(
+            "Estimasi Harga Jual Normal (Rp/unit)",
+            min_value=int(unit_cost_z * 1.2),  # Minimal margin 20%
+            max_value=int(unit_cost_z * 2.5),  # Max margin 150%
+            value=int(unit_cost_z * 1.8),  # Default margin 80%
+            step=5000,
+            format="Rp %d",
+            key="price_z"
         )
-        fig_depletion.add_vline(x=3, line_dash="dash", line_color="orange",
-                               annotation_text="Launch Replacement")
-        fig_depletion.add_hline(y=0, line_dash="dot", line_color="gray")
-        st.plotly_chart(fig_depletion, use_container_width=True)
+        
+        normal_margin = (estimated_selling_price - unit_cost_z) / estimated_selling_price * 100
+        monthly_revenue = monthly_sales_z * estimated_selling_price
+        annual_revenue_potential = monthly_revenue * 12
+        
+        st.markdown("""
+            <table style='width:100%'>
+                <tr><td>Harga Jual Estimasi</td><td><b>Rp {:,.0f}</b></td></tr>
+                <tr><td>Margin Normal</td><td><b style='color:{};'>{:.1f}%</b></td></tr>
+                <tr><td>Monthly Revenue</td><td><b>Rp {:.2f} M</b></td></tr>
+                <tr><td>Annual Potential</td><td><b>Rp {:.2f} M</b></td></tr>
+            </table>
+        </div>
+        """.format(
+            estimated_selling_price,
+            '#22c55e' if normal_margin > 30 else '#eab308' if normal_margin > 15 else '#ef4444',
+            normal_margin,
+            monthly_revenue/1e6,
+            annual_revenue_potential/1e6
+        ), unsafe_allow_html=True)
     
-    with col_z2:
-        st.markdown("#### 🎯 Liquidation Strategies")
+    with col_z_detail3:
+        st.markdown("""
+        <div style='background-color:#f8fafc; padding:15px; border-radius:8px; border:1px solid #cbd5e1;'>
+            <h4 style='margin-top:0; color:#334155;'>⏱️ Depletion & Risk</h4>
+        """, unsafe_allow_html=True)
         
-        # Strategy Matrix
-        strategies = pd.DataFrame({
-            'Strategy': ['Bundle with A', 'Flash Sale 30%', 'Export (Malaysia)', 'B2B Corporate'],
-            'Discount': ['20%', '30%', '15%', '25%'],
-            'Target Units': ['3,000', '2,500', '8,000', '3,500'],
-            'Cash Unlock (M)': ['Rp 440M', 'Rp 825M', 'Rp 935M', 'Rp 770M'],
-            'Speed': ['🔥🔥🔥', '⚡⚡⚡⚡', '🚢🚢', '🤝🤝🤝']
+        months_to_deplete = stock_z / monthly_sales_z
+        stock_at_launch = stock_z - (monthly_sales_z * 3)  # 3 bulan lagi replacement
+        value_at_risk = stock_at_launch * unit_cost_z
+        
+        st.markdown("""
+            <table style='width:100%'>
+                <tr><td>Natural Depletion</td><td><b style='color:#ef4444;'>{:.0f} months</b></td></tr>
+                <tr><td>Replacement Launch</td><td><b>3 months</b></td></tr>
+                <tr><td>Stock at Launch</td><td><b>{:,} units</b></td></tr>
+                <tr><td>Value at Risk (if not sold)</td><td><b style='color:#ef4444;'>Rp {:.2f} M</b></td></tr>
+            </table>
+        </div>
+        """.format(
+            months_to_deplete,
+            stock_at_launch,
+            value_at_risk/1e9
+        ), unsafe_allow_html=True)
+    
+    # ===== MARGIN VS CASH TRADE-OFF SIMULATION =====
+    st.markdown("#### ⚖️ Margin vs Cash Trade-off Simulation")
+    st.info("💡 **Management Constraint:** Maintain margin where possible. Tapi dead stock harus segera dicairkan.")
+    
+    col_trade1, col_trade2 = st.columns(2)
+    
+    with col_trade1:
+        st.markdown("**🎛️ Strategi Likuidasi Device Z**")
+        
+        units_to_liquidate = st.slider(
+            "Jumlah unit yang akan dilikuidasi",
+            min_value=1000,
+            max_value=12000,
+            value=5000,
+            step=1000,
+            key="units_z"
+        )
+        
+        discount_rate = st.slider(
+            "Diskon yang diberikan (%)",
+            min_value=10,
+            max_value=70,
+            value=40,
+            step=5,
+            key="discount_z"
+        )
+        
+        # Hitung impact
+        selling_price_after_discount = estimated_selling_price * (1 - discount_rate/100)
+        revenue = units_to_liquidate * selling_price_after_discount
+        cost = units_to_liquidate * unit_cost_z
+        gross_profit = revenue - cost
+        margin_after_discount = (gross_profit / revenue * 100) if revenue > 0 else 0
+        
+        # Compare dengan margin normal
+        normal_profit_per_unit = estimated_selling_price - unit_cost_z
+        normal_margin_total = units_to_liquidate * normal_profit_per_unit
+        margin_erosion = normal_margin_total - gross_profit
+        
+    with col_trade2:
+        st.markdown("**📊 Hasil Simulasi**")
+        
+        results_trade = pd.DataFrame({
+            'Metric': ['Revenue', 'HPP', 'Gross Profit', 'Margin %', 'Margin Erosion', 'Cash Unlock'],
+            'Value': [
+                f"Rp {revenue/1e6:.0f} M",
+                f"Rp {cost/1e6:.0f} M",
+                f"Rp {gross_profit/1e6:.0f} M",
+                f"{margin_after_discount:.1f}%",
+                f"Rp {margin_erosion/1e6:.0f} M (vs normal)",
+                f"Rp {revenue/1e6:.0f} M"
+            ]
         })
+        st.dataframe(results_trade, use_container_width=True, hide_index=True)
         
-        st.dataframe(strategies, use_container_width=True, hide_index=True)
-        
-        # Cash Unlock Calculation
-        total_unlock = 440 + 825 + 935 + 770  # in Million
-        target = 5000  # 5 Billion
-        
-        fig_gauge = go.Figure(go.Indicator(
-            mode="gauge+number+delta",
-            value=total_unlock,
-            domain={'x': [0, 1], 'y': [0, 1]},
-            title={'text': "Cash Unlock Progress (Rp Million)"},
-            delta={'reference': target},
-            gauge={
-                'axis': {'range': [None, 6000]},
-                'bar': {'color': "darkblue"},
-                'steps': [
-                    {'range': [0, 2500], 'color': "#fee2e2"},
-                    {'range': [2500, 5000], 'color': "#fef9c3"},
-                    {'range': [5000, 6000], 'color': "#dcfce7"}
-                ],
-                'threshold': {
-                    'line': {'color': "red", 'width': 4},
-                    'thickness': 0.75,
-                    'value': target
-                }
-            }
-        ))
-        fig_gauge.update_layout(height=250)
-        st.plotly_chart(fig_gauge, use_container_width=True)
-        
-        st.success(f"""
-        **Total Projected Cash Unlock:** Rp {total_unlock:,.0f} Million (Rp {total_unlock/1000:.2f} Billion)
-        
-        **Gap to Target:** Rp {target - total_unlock:,.0f} Million
-        
-        **Recommendation:** Kombinasikan strategi di atas + negosiasi buyback dengan supplier
-        """)
+        # Visual indicator
+        if margin_after_discount > 20:
+            st.success(f"✅ Margin masih sehat ({margin_after_discount:.1f}%)")
+        elif margin_after_discount > 10:
+            st.warning(f"⚠️ Margin tipis ({margin_after_discount:.1f}%)")
+        else:
+            st.error(f"🔴 Margin sangat rendah ({margin_after_discount:.1f}%) - hampir rugi")
+    
+    # ===== BREAK-EVEN ANALYSIS =====
+    st.markdown("#### 📈 Break-even Analysis")
+    
+    # Data untuk chart
+    discount_rates = list(range(10, 71, 5))
+    margins = []
+    cash_unlock = []
+    
+    for disc in discount_rates:
+        price = estimated_selling_price * (1 - disc/100)
+        rev = units_to_liquidate * price
+        profit = rev - (units_to_liquidate * unit_cost_z)
+        margin_pct = (profit / rev * 100) if rev > 0 else 0
+        margins.append(margin_pct)
+        cash_unlock.append(rev/1e6)
+    
+    fig_tradeoff = go.Figure()
+    
+    fig_tradeoff.add_trace(go.Scatter(
+        x=discount_rates,
+        y=margins,
+        name='Margin %',
+        yaxis='y',
+        line=dict(color='#3b82f6', width=3),
+        mode='lines+markers'
+    ))
+    
+    fig_tradeoff.add_trace(go.Scatter(
+        x=discount_rates,
+        y=cash_unlock,
+        name='Cash Unlock (Rp M)',
+        yaxis='y2',
+        line=dict(color='#10b981', width=3, dash='dash'),
+        mode='lines+markers'
+    ))
+    
+    fig_tradeoff.add_vline(x=discount_rate, line_dash="dot", line_color="red",
+                          annotation_text=f"Selected: {discount_rate}%")
+    
+    fig_tradeoff.add_hline(y=20, line_dash="dot", line_color="orange",
+                          annotation_text="Min Margin 20%", annotation_position="bottom right")
+    
+    fig_tradeoff.update_layout(
+        title=f"Trade-off Analysis: {units_to_liquidate:,} units Device Z",
+        xaxis=dict(title="Discount Rate (%)"),
+        yaxis=dict(title="Margin (%)", side="left", range=[0, 100]),
+        yaxis2=dict(title="Cash Unlock (Rp M)", side="right", overlaying="y", range=[0, max(cash_unlock)*1.1]),
+        hovermode='x unified',
+        height=400
+    )
+    
+    st.plotly_chart(fig_tradeoff, use_container_width=True)
+    
+    # ===== RECOMMENDATION BASED ON MARGIN CONSTRAINT =====
+    st.markdown("#### ✅ Recommendation Based on Margin Constraint")
+    
+    if discount_rate <= 30:
+        rec_color = "green"
+        rec_text = "Margin terjaga dengan baik"
+    elif discount_rate <= 45:
+        rec_color = "orange"
+        rec_text = "Margin mulai tertekan tapi masih acceptable untuk dead stock"
+    else:
+        rec_color = "red"
+        rec_text = "Margin sangat rendah - hanya untuk likuidasi darurat"
+    
+    st.markdown(f"""
+    <div style='background-color:#f8fafc; padding:20px; border-radius:10px; border-left:5px solid {rec_color};'>
+        <h4 style='margin-top:0;'>📌 Kesimpulan untuk Device Z</h4>
+        <p><b>Unit Cost:</b> Rp {unit_cost_z:,.0f} | <b>Estimasi Harga Jual Normal:</b> Rp {estimated_selling_price:,.0f} (margin {normal_margin:.1f}%)</p>
+        <p><b>Strategi Terpilih:</b> Diskon {discount_rate}% untuk {units_to_liquidate:,} unit</p>
+        <p><b>Hasil:</b> Cash Unlock Rp {revenue/1e6:.0f}M dengan margin {margin_after_discount:.1f}%</p>
+        <p><b style='color:{rec_color};'>{rec_text}</b></p>
+        <p><b>Rekomendasi:</b> 
+        {'✅ Diskon ini aman, margin masih >20%' if margin_after_discount > 20 else 
+         '⚠️ Diskon ini moderate, pertimbangkan bundle dengan produk margin tinggi' if margin_after_discount > 10 else 
+         '🔴 Diskon ini agresif, hanya untuk likuidasi cepat sebelum produk baru launch'}
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ==========================================
 # TAB 3: S&OP RESTRUCTURE DESIGN (FIXED)
