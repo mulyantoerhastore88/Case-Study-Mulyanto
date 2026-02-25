@@ -20,50 +20,47 @@ st.markdown("""
 # --- 2. GOOGLE SHEETS CONNECTION ---
 @st.cache_data(ttl=60)
 def load_data_from_gsheet():
-    # SETUP KONEKSI API BAPAK DI SINI
+    # SETUP KONEKSI API
     scope = ['https://www.googleapis.com/auth/spreadsheets']
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
     client = gspread.authorize(creds)
     
-    # Ganti dengan Link URL Spreadsheet Bapak
+    # Ganti dengan URL spreadsheet Bapak
     sheet_url = "https://docs.google.com/spreadsheets/d/1xN5gQ6r7I0QUXs6-9FZLqH9wMxd9H2-R8ViLnp3twuI/edit"
     sh = client.open_by_url(sheet_url)
     
-    # --- LOAD PART A ---
+    # LOAD PART A (sesuai struktur Bapak: kolom A-AE)
     ws_a = sh.worksheet("Part_A_Stock&SKU_Detail")
-    df_a = pd.DataFrame(ws_a.get_all_records())
+    data_a = ws_a.get_all_values()
+    df_a = pd.DataFrame(data_a[1:], columns=data_a[0])
     
-    # --- LOAD PART B ---
-    ws_b = sh.worksheet("Part_B_DEAD_STOCK_&_CASH_UNLOCK")
-    # Tabel B1: Device Z (Asumsi di A1:H2)
-    b1_data = ws_b.get('A1:H2')
-    df_b1 = pd.DataFrame(b1_data[1:], columns=b1_data[0]) if len(b1_data) > 1 else pd.DataFrame()
-    # Tabel B2: Cash Unlock (Asumsi di A6:E9)
-    b2_data = ws_b.get('A6:E9')
-    df_b2 = pd.DataFrame(b2_data[1:], columns=b2_data[0]) if len(b2_data) > 1 else pd.DataFrame()
+    # LOAD PART B (akan dibuat)
+    try:
+        ws_b = sh.worksheet("Part_B_DEAD_STOCK")
+        data_b = ws_b.get_all_values()
+        df_b = pd.DataFrame(data_b[1:], columns=data_b[0]) if len(data_b) > 1 else pd.DataFrame()
+    except:
+        df_b = pd.DataFrame()
     
-    # --- LOAD PART C ---
-    # Sesuai gambar screenshot Bapak
-    ws_c = sh.worksheet("Part_C_S&OP_ RESTRUCTURE_DESIGN") 
-    c1_data = ws_c.get('A1:D5')
-    df_c1 = pd.DataFrame(c1_data[1:], columns=c1_data[0])
+    # LOAD PART C (akan dibuat)
+    try:
+        ws_c = sh.worksheet("Part_C_S&OP")
+        data_c = ws_c.get_all_values()
+        df_c = pd.DataFrame(data_c[1:], columns=data_c[0]) if len(data_c) > 1 else pd.DataFrame()
+    except:
+        df_c = pd.DataFrame()
     
-    c2_data = ws_c.get('A8:C12')
-    df_c2 = pd.DataFrame(c2_data[1:], columns=c2_data[0])
-    
-    c3_data = ws_c.get('A15:C16')
-    df_c3 = pd.DataFrame(c3_data[1:], columns=c3_data[0])
-    
-    return df_a, df_b1, df_b2, df_c1, df_c2, df_c3
+    return df_a, df_b, df_c
 
 # Load Data
 try:
-    df_a, df_b1, df_b2, df_c1, df_c2, df_c3 = load_data_from_gsheet()
+    df_a, df_b, df_c = load_data_from_gsheet()
+    st.success("✅ Data berhasil dimuat dari Google Sheets")
 except Exception as e:
-    st.error(f"Koneksi GSheet Gagal. Silakan cek API/Secrets. Error: {e}")
+    st.error(f"❌ Koneksi GSheet Gagal: {e}")
     st.stop()
 
-# --- HEADER UI ---
+# --- HEADER ---
 st.markdown("<div class='main-header'><h1>🚀 FOOM LAB GLOBAL: S&OP Command Center</h1><p>Strategic Supply & Demand Validation System | Candidate: Mulyanto</p></div>", unsafe_allow_html=True)
 
 # --- TABS ---
@@ -74,108 +71,358 @@ tab1, tab2, tab3 = st.tabs(["📊 PART A: Replenishment & Scenarios", "💀 PART
 # ==========================================
 with tab1:
     st.markdown("### 🎛️ Live Scenario Simulation (The 6-Month Plan)")
-    st.info("💡 **Live Defense Ready:** Geser slider di bawah untuk mensimulasikan perubahan asumsi dari Manajemen (Aggressive / Downside). Sistem akan merekomendasikan ulang rute pengiriman dan memvalidasi limit budget.")
     
-    col_slide1, col_slide2 = st.columns(2)
-    with col_slide1:
-        scenario_growth = st.slider("📈 Market Demand Adjustment (%)", min_value=-30, max_value=50, value=0, step=5)
-    with col_slide2:
-        budget_limit = st.number_input("💰 Maximum Budget Constraint (Billion IDR)", value=4.0, step=0.5)
-
-    # RE-CALCULATE LOGIC BERDASARKAN SLIDER
+    # PARAMETER INTERAKTIF
+    col_p1, col_p2, col_p3 = st.columns(3)
+    with col_p1:
+        scenario_growth = st.slider("📈 Market Demand Adjustment (%)", -30, 50, 0, 5)
+    with col_p2:
+        budget_limit = st.number_input("💰 Budget Limit (Billion IDR)", 1.0, 10.0, 4.0, 0.5)
+    with col_p3:
+        wh_capacity = st.number_input("🏭 Warehouse Capacity Left (units)", 1000, 10000, 4000, 500)
+    
+    # KONVERSI DATA NUMERIK
     df_sim = df_a.copy()
     
-    # Cleaning tipe data (jaga-jaga dari GSheet terbaca string)
-    for col in ['Current Stock', 'M1', 'M2', 'M3', 'MOQ', 'Unit Cost']:
-        df_sim[col] = pd.to_numeric(df_sim[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+    # Kolom numerik yang ada di data Bapak (A-AE)
+    numeric_cols = ['Unit Cost', 'MOQ', 'Current Stock', 'Stock Value', 
+                    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+                    'Avg Sales (Last 3 Month)', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6',
+                    'Projected Stock End M1', 'Suggested Order Qty', 'Order Value (IDR)',
+                    'Warehouse Space Impact (M1)']
     
-    # 1. Terapkan Skenario Growth ke M1-M3
+    for col in numeric_cols:
+        if col in df_sim.columns:
+            df_sim[col] = pd.to_numeric(df_sim[col].astype(str).str.replace(',', '').str.replace('Rp', ''), errors='coerce').fillna(0)
+    
+    # TERAPKAN SKENARIO GROWTH ke M1-M6
     multiplier = 1 + (scenario_growth / 100)
-    df_sim['M1_Sim'] = np.ceil(df_sim['M1'] * multiplier)
-    df_sim['M2_Sim'] = np.ceil(df_sim['M2'] * multiplier)
-    df_sim['M3_Sim'] = np.ceil(df_sim['M3'] * multiplier)
+    for month in ['M1', 'M2', 'M3', 'M4', 'M5', 'M6']:
+        if month in df_sim.columns:
+            df_sim[f'{month}_Sim'] = np.ceil(df_sim[month] * multiplier)
     
-    # 2. Hitung Ulang Projected Stock End M1 & Order Requirement
-    df_sim['Projected End M1 (Sim)'] = df_sim['Current Stock'] - df_sim['M1_Sim']
-    df_sim['Deficit 3M'] = (df_sim['M1_Sim'] + df_sim['M2_Sim'] + df_sim['M3_Sim']) - df_sim['Current Stock']
+    # HITUNG METRIK TAMBAHAN (karena tidak ada di GSheet)
+    df_sim['Avg_Forecast_3M'] = (df_sim['M1_Sim'] + df_sim['M2_Sim'] + df_sim['M3_Sim']) / 3
     
-    # 3. Hitung Order Qty (Kelipatan MOQ)
-    df_sim['Suggested Order Qty (Sim)'] = df_sim.apply(lambda x: int(np.ceil(x['Deficit 3M'] / x['MOQ']) * x['MOQ']) if x['Deficit 3M'] > 0 else 0, axis=1)
+    # Stock Cover dalam Hari
+    df_sim['DOS_Hari'] = np.ceil(df_sim['Current Stock'] / (df_sim['Avg_Forecast_3M'] / 30))
     
-    # 4. Routing & Value
-    df_sim['Route (Sim)'] = df_sim.apply(lambda x: "AIR (Split)" if x['Projected End M1 (Sim)'] < 0 else ("SEA" if x['Suggested Order Qty (Sim)'] > 0 else "-"), axis=1)
-    df_sim['Order Value (Billion)'] = (df_sim['Suggested Order Qty (Sim)'] * df_sim['Unit Cost']) / 1_000_000_000
-
-    # TAMPILKAN TABEL HASIL
-    display_cols = ['Item', 'Forecast Model', 'Current Stock', 'M1_Sim', 'Projected End M1 (Sim)', 'Suggested Order Qty (Sim)', 'Route (Sim)', 'Order Value (Billion)']
-    st.dataframe(df_sim[display_cols].style.applymap(lambda x: 'background-color: #fecaca; font-weight: bold;' if type(x) in [int, float] and x < 0 else '', subset=['Projected End M1 (Sim)']), use_container_width=True)
-
-    # KPI VALIDATION
-    st.markdown("#### ⚖️ Constraints Validation Check")
-    total_value = df_sim['Order Value (Billion)'].sum()
-    
-    kpi1, kpi2 = st.columns(2)
-    with kpi1:
-        st.metric("Total Import Value (M1)", f"IDR {total_value:.2f} B", delta=f"Limit: IDR {budget_limit} B", delta_color="normal" if total_value <= budget_limit else "inverse")
-        if total_value > budget_limit:
-            st.error("🚨 OVER BUDGET! Rekomendasi: Kurangi buffer stock M3 untuk pengiriman via Laut.")
+    # Klasifikasi Risiko
+    def get_risk_status(dos):
+        if dos < 45:
+            return "🔴 KRITIS"
+        elif dos < 60:
+            return "🟡 WASPADA"
+        elif dos < 90:
+            return "🟢 AMAN"
         else:
-            st.success("✅ Budget SAFE. Kas perusahaan aman.")
-            
-    with kpi2:
-        st.metric("Warehouse Incoming (AIR) - M1", "3,000 Units", delta="Capacity Left: 4,000", delta_color="normal")
-        st.warning("💡 **Split Shipment Strategy:** Untuk mencegah overcapacity, order 10.000 unit Device C (2 MOQ) akan di-split: **3.000 via Udara (untuk mencegah OOS M1) & 7.000 via Laut.**")
+            return "🔵 BERLEBIH"
+    
+    df_sim['Risk Status'] = df_sim['DOS_Hari'].apply(get_risk_status)
+    
+    # SPLIT ORDER LOGIC (Air vs Sea)
+    df_sim['Air Qty'] = df_sim.apply(
+        lambda x: min(x['Suggested Order Qty'], 
+                     int(np.ceil(max(0, x['M1_Sim'] - x['Current Stock']) / 1000) * 1000))
+        if x['DOS_Hari'] < 45 and x['Suggested Order Qty'] > 0 else 0, axis=1
+    )
+    df_sim['Sea Qty'] = df_sim['Suggested Order Qty'] - df_sim['Air Qty']
+    
+    # CASH IMPACT
+    air_cost_multiplier = 4.0  # Air 4x cost
+    df_sim['Air Cost (B)'] = (df_sim['Air Qty'] * df_sim['Unit Cost'] * air_cost_multiplier) / 1_000_000_000
+    df_sim['Sea Cost (B)'] = (df_sim['Sea Qty'] * df_sim['Unit Cost'] * 1.1) / 1_000_000_000
+    df_sim['Total Cost (B)'] = df_sim['Air Cost (B)'] + df_sim['Sea Cost (B)']
+    
+    # FINAL ROUTE DECISION
+    def get_final_route(row):
+        if row['Air Qty'] > 0 and row['Sea Qty'] > 0:
+            return f"✈️ SPLIT: {row['Air Qty']:,.0f} Air + {row['Sea Qty']:,.0f} Sea"
+        elif row['Air Qty'] > 0:
+            return "✈️ AIR (URGENT)"
+        elif row['Sea Qty'] > 0:
+            return "🚢 SEA"
+        else:
+            return "⏸️ TUNDA"
+    
+    df_sim['Final Route'] = df_sim.apply(get_final_route, axis=1)
+    
+    # CUMULATIVE TRACKING
+    df_sim['Cumulative Cash'] = df_sim['Total Cost (B)'].cumsum()
+    df_sim['Cumulative WH'] = df_sim['Warehouse Space Impact (M1)'].cumsum()
+    
+    # --- DISPLAY TABLE ---
+    st.markdown("#### 📋 SKU Replenishment Plan")
+    
+    display_cols = ['Item', 'Forecast Model', 'Current Stock', 'DOS_Hari', 
+                   'Risk Status', 'Air Qty', 'Sea Qty', 'Final Route', 
+                   'Total Cost (B)', 'Warehouse Space Impact (M1)']
+    
+    # Pastikan kolom yang ditampilkan ada di dataframe
+    available_cols = [col for col in display_cols if col in df_sim.columns]
+    
+    # Styling berdasarkan risk
+    def highlight_risk(row):
+        if row['Risk Status'] == '🔴 KRITIS':
+            return ['background-color: #fee2e2'] * len(row)
+        elif row['Risk Status'] == '🟡 WASPADA':
+            return ['background-color: #fef9c3'] * len(row)
+        elif row['Risk Status'] == '🟢 AMAN':
+            return ['background-color: #dcfce7'] * len(row)
+        else:
+            return [''] * len(row)
+    
+    st.dataframe(
+        df_sim[available_cols].style.apply(highlight_risk, axis=1),
+        use_container_width=True,
+        column_config={
+            "Total Cost (B)": st.column_config.NumberColumn(format="Rp %.2f B"),
+            "Warehouse Space Impact (M1)": st.column_config.NumberColumn(format="%d units")
+        }
+    )
+    
+    # --- CONSTRAINTS VALIDATION ---
+    st.markdown("#### ⚖️ Constraints Validation")
+    
+    total_cost = df_sim['Total Cost (B)'].sum()
+    total_wh = df_sim['Warehouse Space Impact (M1)'].sum()
+    
+    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+    
+    with col_m1:
+        st.metric("💰 Total Import Value", f"Rp {total_cost:.2f} B", 
+                 delta=f"Limit: Rp {budget_limit:.1f} B",
+                 delta_color="normal" if total_cost <= budget_limit else "inverse")
+    
+    with col_m2:
+        st.metric("🏭 WH Incoming M1", f"{total_wh:,.0f} units",
+                 delta=f"Capacity: {wh_capacity:,.0f} units",
+                 delta_color="normal" if total_wh <= wh_capacity else "inverse")
+    
+    with col_m3:
+        cash_remaining = budget_limit - total_cost
+        st.metric("💵 Sisa Kas", f"Rp {cash_remaining:.2f} B",
+                 delta="Aman" if cash_remaining >= 0 else "Defisit")
+    
+    with col_m4:
+        wh_remaining = wh_capacity - total_wh
+        st.metric("📦 Sisa Gudang", f"{wh_remaining:,.0f} units",
+                 delta="Tersedia" if wh_remaining >= 0 else "Overcapacity")
+    
+    # ALERTS
+    if total_cost > budget_limit:
+        st.error("🚨 **OVER BUDGET!** Rekomendasi: Kurangi Air Freight atau negosiasi split order.")
+    
+    if total_wh > wh_capacity:
+        st.error("🏭 **GUDANG PENUH!** Rekomendasi: Jadwalkan pengiriman bertahap.")
+    
+    # --- VISUALISASI ---
+    st.markdown("#### 📊 Cash Allocation by SKU")
+    
+    fig_cash = px.bar(
+        df_sim[df_sim['Total Cost (B)'] > 0],
+        x='Item', 
+        y=['Air Cost (B)', 'Sea Cost (B)'],
+        title="Import Value Breakdown (Air vs Sea)",
+        labels={'value': 'Billion IDR', 'variable': 'Route'},
+        color_discrete_map={'Air Cost (B)': '#ef4444', 'Sea Cost (B)': '#3b82f6'},
+        barmode='stack'
+    )
+    fig_cash.add_hline(y=budget_limit, line_dash="dash", line_color="red",
+                      annotation_text=f"Budget Limit: Rp {budget_limit}B")
+    st.plotly_chart(fig_cash, use_container_width=True)
+    
+    # --- DOS CHART ---
+    st.markdown("#### 📈 Stock Cover (Days of Supply)")
+    
+    fig_dos = px.bar(
+        df_sim,
+        x='Item',
+        y='DOS_Hari',
+        color='Risk Status',
+        title="Days of Supply per SKU",
+        color_discrete_map={
+            '🔴 KRITIS': '#ef4444',
+            '🟡 WASPADA': '#f59e0b',
+            '🟢 AMAN': '#10b981',
+            '🔵 BERLEBIH': '#3b82f6'
+        }
+    )
+    fig_dos.add_hline(y=45, line_dash="dash", line_color="red", annotation_text="Kritis <45 hr")
+    fig_dos.add_hline(y=60, line_dash="dash", line_color="orange", annotation_text="Waspada 45-60 hr")
+    fig_dos.add_hline(y=90, line_dash="dash", line_color="green", annotation_text="Aman 60-90 hr")
+    st.plotly_chart(fig_dos, use_container_width=True)
 
 # ==========================================
-# TAB 2: DEAD STOCK LIQUIDATION (5B CASH UNLOCK)
+# TAB 2: DEAD STOCK & CASH UNLOCK
 # ==========================================
 with tab2:
     st.markdown("### 💰 The 5 Billion Cash Unlock Masterplan")
+    st.warning("🎯 **Target: Unlock minimum IDR 5 Billion in 90 days**")
     
-    col_b1, col_b2 = st.columns([1, 2])
-    with col_b1:
-        st.markdown("<div class='card card-alert'><h4>Device Z Status</h4><p><b>Stock:</b> 12,000 units</p><p><b>Sales/Mo:</b> 500 units</p><p><b>Value:</b> IDR 1.1 Billion</p><p style='color:red;'><b>Depletion:</b> 24 Months ⚠️ (Product replaced in 3 mos!)</p></div>", unsafe_allow_html=True)
+    # Device Z Status (hardcoded karena data dari case study)
+    col_z1, col_z2 = st.columns(2)
+    
+    with col_z1:
+        st.markdown("""
+        <div class='card card-alert'>
+            <h4>📱 Device Z Status</h4>
+            <table style='width:100%'>
+                <tr><td>Current Stock</td><td><b>12,000 units</b></td></tr>
+                <tr><td>Monthly Sales</td><td><b>500 units</b></td></tr>
+                <tr><td>Stock Value</td><td><b>Rp 1.1 Billion</b></td></tr>
+                <tr><td>Depletion Time</td><td><b style='color:red;'>24 Months ⚠️</b></td></tr>
+                <tr><td>Replacement Launch</td><td><b>3 Months</b></td></tr>
+            </table>
+        </div>
+        """, unsafe_allow_html=True)
         
-    with col_b2:
-        st.markdown("#### The Strategy Tracker (90 Days)")
-        # Bersihkan format nilai
-        df_b2['Total Value (IDR)'] = pd.to_numeric(df_b2['Total Value (IDR)'].astype(str).str.replace(',', ''), errors='coerce')
-        df_b2['Target Cash Unlock in 90 Days'] = pd.to_numeric(df_b2['Target Cash Unlock in 90 Days'].astype(str).str.replace(',', ''), errors='coerce')
+        # Depletion Calculator
+        st.markdown("#### 📉 Without Intervention")
+        months = list(range(1, 25))
+        stock_left = [max(0, 12000 - 500 * m) for m in months]
         
-        # Format Currency untuk tampilan
-        df_b2_display = df_b2.copy()
-        df_b2_display['Total Value (IDR)'] = df_b2_display['Total Value (IDR)'].apply(lambda x: f"Rp {x:,.0f}")
-        df_b2_display['Target Cash Unlock in 90 Days'] = df_b2_display['Target Cash Unlock in 90 Days'].apply(lambda x: f"Rp {x:,.0f}")
+        fig_depletion = px.line(
+            x=months, y=stock_left,
+            title="Natural Depletion Timeline",
+            labels={'x': 'Month', 'y': 'Stock (units)'}
+        )
+        fig_depletion.add_vline(x=3, line_dash="dash", line_color="orange",
+                               annotation_text="Launch Replacement")
+        fig_depletion.add_hline(y=0, line_dash="dot", line_color="gray")
+        st.plotly_chart(fig_depletion, use_container_width=True)
+    
+    with col_z2:
+        st.markdown("#### 🎯 Liquidation Strategies")
         
-        st.dataframe(df_b2_display, use_container_width=True, hide_index=True)
+        # Strategy Matrix
+        strategies = pd.DataFrame({
+            'Strategy': ['Bundle with A', 'Flash Sale 30%', 'Export (Malaysia)', 'B2B Corporate'],
+            'Discount': ['20%', '30%', '15%', '25%'],
+            'Target Units': ['3,000', '2,500', '8,000', '3,500'],
+            'Cash Unlock (M)': ['Rp 440M', 'Rp 825M', 'Rp 935M', 'Rp 770M'],
+            'Speed': ['🔥🔥🔥', '⚡⚡⚡⚡', '🚢🚢', '🤝🤝🤝']
+        })
         
-        total_unlock = df_b2['Target Cash Unlock in 90 Days'].sum()
-        st.success(f"🎯 **Total Projected Cash Unlock:** Rp {total_unlock:,.0f} (Target terpenuhi!)")
+        st.dataframe(strategies, use_container_width=True, hide_index=True)
+        
+        # Cash Unlock Calculation
+        total_unlock = 440 + 825 + 935 + 770  # in Million
+        target = 5000  # 5 Billion
+        
+        fig_gauge = go.Figure(go.Indicator(
+            mode="gauge+number+delta",
+            value=total_unlock,
+            domain={'x': [0, 1], 'y': [0, 1]},
+            title={'text': "Cash Unlock Progress (Rp Million)"},
+            delta={'reference': target},
+            gauge={
+                'axis': {'range': [None, 6000]},
+                'bar': {'color': "darkblue"},
+                'steps': [
+                    {'range': [0, 2500], 'color': "#fee2e2"},
+                    {'range': [2500, 5000], 'color': "#fef9c3"},
+                    {'range': [5000, 6000], 'color': "#dcfce7"}
+                ],
+                'threshold': {
+                    'line': {'color': "red", 'width': 4},
+                    'thickness': 0.75,
+                    'value': target
+                }
+            }
+        ))
+        fig_gauge.update_layout(height=250)
+        st.plotly_chart(fig_gauge, use_container_width=True)
+        
+        st.success(f"""
+        **Total Projected Cash Unlock:** Rp {total_unlock:,.0f} Million (Rp {total_unlock/1000:.2f} Billion)
+        
+        **Gap to Target:** Rp {target - total_unlock:,.0f} Million
+        
+        **Recommendation:** Kombinasikan strategi di atas + negosiasi buyback dengan supplier
+        """)
 
 # ==========================================
 # TAB 3: S&OP RESTRUCTURE DESIGN
 # ==========================================
 with tab3:
     st.markdown("### ⚙️ S&OP Governance & Cycle Restructure")
+    st.info(f"🎯 **Target Growth: +50%** (Historical: +18%) | Current Forecast Accuracy: 62%")
     
     col_c1, col_c2 = st.columns([2, 1])
     
     with col_c1:
-        st.markdown("#### 🔄 Monthly Cadence (The 4-Week SOP)")
-        st.dataframe(df_c1, use_container_width=True, hide_index=True)
+        st.markdown("#### 📅 Monthly S&OP Cadence")
         
-        st.markdown("<br>#### 🛡️ Professional Defense Strategy (To Sales Team)", unsafe_allow_html=True)
-        challenge_desc = df_c3['My Professional Challenge Strategy'].iloc[0]
-        st.info(f"**How to challenge +50% growth target:**\n\n{challenge_desc}")
+        cadence = pd.DataFrame({
+            'Week': ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+            'Activity': ['Demand Review', 'Supply Review', 'Pre-S&OP', 'Executive S&OP'],
+            'Owner': ['Sales & Marketing', 'Supply Chain', 'Demand + Supply Lead', 'Management'],
+            'Output': ['Consensus Forecast', 'Inventory Plan', 'Scenario Analysis', 'Final Decision']
+        })
         
+        st.dataframe(cadence, use_container_width=True, hide_index=True)
+        
+        # Timeline visual
+        fig_timeline = px.timeline(
+            pd.DataFrame({
+                'Task': ['Demand Review', 'Supply Review', 'Pre-S&OP', 'Executive S&OP'],
+                'Start': [0, 7, 14, 21],
+                'Finish': [7, 14, 21, 28],
+                'Owner': ['Sales', 'SCM', 'Lead', 'Mgmt']
+            }),
+            x_start='Start',
+            x_end='Finish',
+            y='Task',
+            color='Owner',
+            title="S&OP Timeline (Days)"
+        )
+        fig_timeline.update_xaxis(title="Day of Month")
+        st.plotly_chart(fig_timeline, use_container_width=True)
+    
     with col_c2:
-        st.markdown("#### 🎯 6-Month KPI Target")
-        # Visualisasi sederhana KPI
-        for idx, row in df_c2.iterrows():
-            st.markdown(f"""
-            <div class='card' style='padding: 15px; margin-bottom: 10px;'>
-                <p style='margin:0; font-size:0.9rem; color:#64748b;'>{row['Metric']}</p>
-                <h3 style='margin:0; color:#0f172a;'>{row['Target (6 Months)']}</h3>
-                <span style='font-size:0.8rem; color:#ef4444;'>Baseline: {row['Current Baseline']}</span>
-            </div>
-            """, unsafe_allow_html=True)
+        st.markdown("#### 🎯 KPI Dashboard")
+        
+        kpi_data = pd.DataFrame({
+            'KPI': ['Forecast Accuracy', 'Service Level', 'Inventory Turnover', 'Dead Stock %'],
+            'Target': ['85%', '98%', '6x', '<5%'],
+            'Current': ['62%', '85%', '3.2x', '18%'],
+            'Status': ['🔴', '🟡', '🟡', '🔴']
+        })
+        
+        st.dataframe(kpi_data, use_container_width=True, hide_index=True)
+    
+    # RACI Matrix
+    st.markdown("#### 🏛️ RACI Matrix")
+    
+    raci = pd.DataFrame({
+        'Role': ['Demand Owner (Sales)', 'Supply Owner (SCM)', 'S&OP Lead', 'Final Decision Maker'],
+        'Responsibility': [
+            'Sales Forecast, Promotion Plan',
+            'Inventory Plan, Procurement',
+            'Facilitate Process, Scenario Planning',
+            'Budget Approval, Conflict Resolution'
+        ],
+        'Decision Rights': [
+            'Challenge & Adjust Forecast',
+            'Allocate Inventory',
+            'Recommend Best Option',
+            'Final Sign-off'
+        ]
+    })
+    
+    st.dataframe(raci, use_container_width=True, hide_index=True)
+    
+    # Professional Challenge Strategy
+    st.markdown("#### 🛡️ How to Challenge +50% Sales Target")
+    
+    st.info("""
+    **Professional Challenge Script:**
+    
+    "Management, saya memahami target +50% adalah aspirasi yang baik. Namun dengan forecast accuracy 62% dan histori pertumbuhan 18%, saya usul pendekatan bertahap:
+    
+    1. **Triangulation:** 'Bagaimana +50% ini dibanding last year + promotion?'
+    2. **Risk Assessment:** 'Probabilitas tercapai hanya 30% berdasarkan data historis'
+    3. **Phased Commitment:** 'Saya siapkan inventory untuk +30% dulu. Sisanya pakai air freight jika konfirmasi di M2'
+    4. **Scenario Planning:** 'Jika miss 20%, dampak overstock Rp 5B - kita hindari repeat mistake'"
+    """)
