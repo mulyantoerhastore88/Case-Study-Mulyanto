@@ -118,7 +118,7 @@ with tab1:
             - **Seasonal Detection:** Untuk data dengan pola berulang (Device B)
             - **Linear Trend:** Untuk data dengan trend naik/turun konsisten (Device C)
             
-            **Mirror Growth dipilih karena:**
+            **Month to Month Mirror Growth dipilih karena:**
             - Menangkap pola musiman dari tahun sebelumnya
             - Sederhana dan mudah dijelaskan ke management
             - Cocok untuk FMCG dengan siklus tahunan
