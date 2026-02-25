@@ -107,7 +107,7 @@ with tab1:
     df_sim['Order Value (Billion)'] = (df_sim['Suggested Order Qty (Sim)'] * df_sim['Unit Cost']) / 1_000_000_000
 
     # TAMPILKAN TABEL HASIL
-    display_cols = ['SKU', 'Forecast Model', 'Current Stock', 'M1_Sim', 'Projected End M1 (Sim)', 'Suggested Order Qty (Sim)', 'Route (Sim)', 'Order Value (Billion)']
+    display_cols = ['Item', 'Forecast Model', 'Current Stock', 'M1_Sim', 'Projected End M1 (Sim)', 'Suggested Order Qty (Sim)', 'Route (Sim)', 'Order Value (Billion)']
     st.dataframe(df_sim[display_cols].style.applymap(lambda x: 'background-color: #fecaca; font-weight: bold;' if type(x) in [int, float] and x < 0 else '', subset=['Projected End M1 (Sim)']), use_container_width=True)
 
     # KPI VALIDATION
