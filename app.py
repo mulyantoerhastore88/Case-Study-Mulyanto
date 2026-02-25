@@ -67,191 +67,430 @@ st.markdown("<div class='main-header'><h1>🚀 FOOM LAB GLOBAL: S&OP Command Cen
 tab1, tab2, tab3 = st.tabs(["📊 PART A: Replenishment & Scenarios", "💀 PART B: Cash Unlock & Dead Stock", "⚙️ PART C: S&OP Governance"])
 
 # ==========================================
-# TAB 1: REPLENISHMENT & SCENARIOS
+# TAB 1: REPLENISHMENT & SCENARIOS (FULL VERSION)
 # ==========================================
 with tab1:
-    st.markdown("### 🎛️ Live Scenario Simulation (The 6-Month Plan)")
+    # ===== PART 1: 6-MONTH FORECAST & LOGIKA =====
+    st.markdown("## 📈 PART A: 6-MONTH FORECAST & REPLENISHMENT PLAN")
+    st.markdown("---")
     
-    # PARAMETER INTERAKTIF
-    col_p1, col_p2, col_p3 = st.columns(3)
-    with col_p1:
-        scenario_growth = st.slider("📈 Market Demand Adjustment (%)", -30, 50, 0, 5)
-    with col_p2:
-        budget_limit = st.number_input("💰 Budget Limit (Billion IDR)", 1.0, 10.0, 4.0, 0.5)
-    with col_p3:
-        wh_capacity = st.number_input("🏭 Warehouse Capacity Left (units)", 1000, 10000, 4000, 500)
+    st.markdown("### 📐 1. Forecast Methodology")
     
-    # KONVERSI DATA NUMERIK
-    df_sim = df_a.copy()
+    with st.expander("📊 **Klik untuk melihat logika lengkap forecast**", expanded=True):
+        col_logic1, col_logic2 = st.columns(2)
+        
+        with col_logic1:
+            st.markdown("""
+            **🧮 Rumus Excel yang digunakan:**
+            
+            **1. Klasifikasi Model (Kolom T):**
+            ```
+            =IF(RSQ(F2:Q2, {1..12}) > 0.8, "Linear Trend",
+               IF(MAX(F2:Q2)/MEDIAN(F2:Q2) > 1.5, "Seasonal",
+               "Moving Average"))
+            ```
+            
+            **2. M1 - Weighted Moving Average (60-30-10):**
+            ```
+            =ROUNDUP((Q2*0.6) + (P2*0.3) + (O2*0.1), 0)
+            ```
+            - Des (60%) + Nov (30%) + Okt (10%)
+            
+            **3. M2-M6 - Mirror Growth:**
+            ```
+            M2 = U2 × (G2/F2)  # Feb/Jan
+            M3 = V2 × (H2/G2)  # Mar/Feb
+            M4 = W2 × (I2/H2)  # Apr/Mar
+            M5 = X2 × (J2/I2)  # May/Apr
+            M6 = Y2 × (K2/J2)  # Jun/May
+            ```
+            """)
+        
+        with col_logic2:
+            st.markdown("""
+            **📈 Interpretasi Data Historis:**
+            
+            | Item | Pola | Metode | Rationale |
+            |------|------|--------|-----------|
+            | **Device A** | Stabil (4.7K-5.4K) | Moving Average | Tidak ada trend signifikan |
+            | **Device B** | Spike Apr-Mei | Moving Average (excl outlier) | Anomali campaign, exclude dari trend |
+            | **Device C** | Naik konsisten | Linear Trend | R² = 0.92, growth 200 unit/bulan |
+            
+            **🎯 3 Skenario:**
+            - **Base Scenario:** Forecast asli dari rumus
+            - **Aggressive (+20%):** Base × 1.2 (optimis)
+            - **Downside (-20%):** Base × 0.8 (konservatif)
+            """)
     
-    # Kolom numerik yang ada di data Bapak (A-AE)
-    numeric_cols = ['Unit Cost', 'MOQ', 'Current Stock', 'Stock Value', 
-                    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-                    'Avg Sales (Last 3 Month)', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6',
-                    'Projected Stock End M1', 'Suggested Order Qty', 'Order Value (IDR)',
-                    'Warehouse Space Impact (M1)']
+    # ===== PART 2: 6-MONTH FORECAST TABLE =====
+    st.markdown("### 📊 2. 6-Month Forecast (Base Scenario)")
     
-    for col in numeric_cols:
-        if col in df_sim.columns:
-            df_sim[col] = pd.to_numeric(df_sim[col].astype(str).str.replace(',', '').str.replace('Rp', ''), errors='coerce').fillna(0)
+    # Kolom forecast yang ada di GSheet
+    forecast_cols = ['Item', 'Forecast Model'] + [f'M{i}' for i in range(1, 7)]
+    available_forecast = [col for col in forecast_cols if col in df_a.columns]
     
-    # TERAPKAN SKENARIO GROWTH ke M1-M6
-    multiplier = 1 + (scenario_growth / 100)
-    for month in ['M1', 'M2', 'M3', 'M4', 'M5', 'M6']:
-        if month in df_sim.columns:
-            df_sim[f'{month}_Sim'] = np.ceil(df_sim[month] * multiplier)
+    if len(available_forecast) > 1:
+        df_forecast = df_a[available_forecast].copy()
+        
+        # Konversi ke numerik
+        for col in [f'M{i}' for i in range(1, 7)]:
+            if col in df_forecast.columns:
+                df_forecast[col] = pd.to_numeric(df_forecast[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+        
+        # Hitung Total 6 Bulan
+        df_forecast['Total 6 Bulan'] = df_forecast[[f'M{i}' for i in range(1, 7)]].sum(axis=1)
+        df_forecast['Rata-rata'] = (df_forecast['Total 6 Bulan'] / 6).round(0)
+        
+        # Format untuk display
+        display_forecast = df_forecast.copy()
+        for col in [f'M{i}' for i in range(1, 7)] + ['Total 6 Bulan', 'Rata-rata']:
+            if col in display_forecast.columns:
+                display_forecast[col] = display_forecast[col].apply(lambda x: f"{x:,.0f}")
+        
+        st.dataframe(display_forecast, use_container_width=True, hide_index=True)
     
-    # HITUNG METRIK TAMBAHAN (karena tidak ada di GSheet)
-    df_sim['Avg_Forecast_3M'] = (df_sim['M1_Sim'] + df_sim['M2_Sim'] + df_sim['M3_Sim']) / 3
+    # ===== PART 3: 3 SCENARIOS COMPARISON =====
+    st.markdown("### 🔄 3. Three Scenarios Comparison (Base vs Aggressive vs Downside)")
     
-    # Stock Cover dalam Hari
-    df_sim['DOS_Hari'] = np.ceil(df_sim['Current Stock'] / (df_sim['Avg_Forecast_3M'] / 30))
+    # Buat data untuk 3 skenario
+    df_scenarios = df_a[['Item'] + [f'M{i}' for i in range(1, 7)]].copy()
     
-    # Klasifikasi Risiko
-    def get_risk_status(dos):
-        if dos < 45:
+    # Konversi ke numerik
+    for col in [f'M{i}' for i in range(1, 7)]:
+        if col in df_scenarios.columns:
+            df_scenarios[col] = pd.to_numeric(df_scenarios[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+    
+    # Hitung metrik per SKU
+    df_scenarios['Base_Total'] = df_scenarios[[f'M{i}' for i in range(1, 7)]].sum(axis=1)
+    df_scenarios['Base_Avg'] = (df_scenarios['Base_Total'] / 6).round(0)
+    df_scenarios['Agg_Total'] = (df_scenarios['Base_Total'] * 1.2).round(0)
+    df_scenarios['Agg_Avg'] = (df_scenarios['Agg_Total'] / 6).round(0)
+    df_scenarios['Down_Total'] = (df_scenarios['Base_Total'] * 0.8).round(0)
+    df_scenarios['Down_Avg'] = (df_scenarios['Down_Total'] / 6).round(0)
+    
+    # Tabel perbandingan
+    comparison_table = df_scenarios[['Item', 
+                                     'Base_Avg', 'Base_Total',
+                                     'Agg_Avg', 'Agg_Total',
+                                     'Down_Avg', 'Down_Total']].copy()
+    
+    # Format angka
+    for col in comparison_table.columns:
+        if col != 'Item':
+            comparison_table[col] = comparison_table[col].apply(lambda x: f"{x:,.0f}")
+    
+    st.dataframe(
+        comparison_table,
+        use_container_width=True,
+        column_config={
+            "Base_Avg": "Base (avg/mo)",
+            "Base_Total": "Base 6M",
+            "Agg_Avg": "Agg +20%",
+            "Agg_Total": "Agg 6M",
+            "Down_Avg": "Down -20%",
+            "Down_Total": "Down 6M"
+        }
+    )
+    
+    # Visualisasi per SKU
+    st.markdown("#### 📈 Visualisasi per SKU")
+    selected_sku = st.selectbox("Pilih SKU untuk detail scenario:", df_a['Item'].tolist(), key="sku_selector")
+    
+    # Filter untuk SKU terpilih
+    sku_data = df_scenarios[df_scenarios['Item'] == selected_sku].iloc[0]
+    
+    # Data untuk line chart
+    months = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6']
+    base_values = [sku_data[m] for m in months]
+    agg_values = [v * 1.2 for v in base_values]
+    down_values = [v * 0.8 for v in base_values]
+    
+    plot_df = pd.DataFrame({
+        'Month': months,
+        'Base': base_values,
+        'Aggressive (+20%)': agg_values,
+        'Downside (-20%)': down_values
+    })
+    
+    plot_df_melted = plot_df.melt(id_vars=['Month'], var_name='Scenario', value_name='Forecast')
+    
+    fig_line = px.line(
+        plot_df_melted,
+        x='Month',
+        y='Forecast',
+        color='Scenario',
+        title=f"6-Month Forecast Scenarios: {selected_sku}",
+        markers=True,
+        color_discrete_map={
+            'Base': '#3b82f6',
+            'Aggressive (+20%)': '#10b981',
+            'Downside (-20%)': '#ef4444'
+        }
+    )
+    st.plotly_chart(fig_line, use_container_width=True)
+    
+    # Bar chart comparison all SKUs
+    st.markdown("#### 📊 Total 6-Month Forecast by SKU")
+    
+    fig_bar = go.Figure()
+    for idx, row in df_scenarios.iterrows():
+        fig_bar.add_trace(go.Bar(
+            name=row['Item'],
+            x=['Base', 'Aggressive', 'Downside'],
+            y=[row['Base_Total'], row['Agg_Total'], row['Down_Total']],
+            text=[f"{row['Base_Total']:,.0f}", f"{row['Agg_Total']:,.0f}", f"{row['Down_Total']:,.0f}"],
+            textposition='auto',
+        ))
+    
+    fig_bar.update_layout(
+        title="6-Month Total Forecast Comparison",
+        barmode='group',
+        yaxis_title="Total Units"
+    )
+    st.plotly_chart(fig_bar, use_container_width=True)
+    
+    # ===== PART 4: STOCK COVER & INVENTORY EXPOSURE =====
+    st.markdown("### 📦 4. Stock Cover & Inventory Exposure")
+    
+    # Hitung stock cover
+    df_cover = df_a[['Item', 'Current Stock', 'Unit Cost']].copy()
+    
+    # Konversi numerik
+    df_cover['Current Stock'] = pd.to_numeric(df_cover['Current Stock'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+    df_cover['Unit Cost'] = pd.to_numeric(df_cover['Unit Cost'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+    
+    # Ambil forecast M1-M3 untuk rata-rata
+    df_cover['Avg_Forecast'] = 0
+    for i, row in df_cover.iterrows():
+        item = row['Item']
+        m1 = pd.to_numeric(df_a[df_a['Item'] == item]['M1'].values[0] if len(df_a[df_a['Item'] == item]) > 0 else 0, errors='coerce')
+        m2 = pd.to_numeric(df_a[df_a['Item'] == item]['M2'].values[0] if len(df_a[df_a['Item'] == item]) > 0 else 0, errors='coerce')
+        m3 = pd.to_numeric(df_a[df_a['Item'] == item]['M3'].values[0] if len(df_a[df_a['Item'] == item]) > 0 else 0, errors='coerce')
+        df_cover.loc[i, 'Avg_Forecast'] = (m1 + m2 + m3) / 3
+    
+    # Stock Cover (bulan)
+    df_cover['Stock Cover (bulan)'] = df_cover.apply(
+        lambda x: round(x['Current Stock'] / x['Avg_Forecast'], 1) if x['Avg_Forecast'] > 0 else 0,
+        axis=1
+    )
+    
+    # Stock Cover (hari)
+    df_cover['Stock Cover (hari)'] = (df_cover['Stock Cover (bulan)'] * 30).round(0)
+    
+    # Status
+    def get_status(cover):
+        if cover < 45:
             return "🔴 KRITIS"
-        elif dos < 60:
+        elif cover < 60:
             return "🟡 WASPADA"
-        elif dos < 90:
+        elif cover < 90:
             return "🟢 AMAN"
         else:
             return "🔵 BERLEBIH"
     
-    df_sim['Risk Status'] = df_sim['DOS_Hari'].apply(get_risk_status)
+    df_cover['Status'] = df_cover['Stock Cover (hari)'].apply(get_status)
     
-    # SPLIT ORDER LOGIC (Air vs Sea)
-    df_sim['Air Qty'] = df_sim.apply(
-        lambda x: min(x['Suggested Order Qty'], 
-                     int(np.ceil(max(0, x['M1_Sim'] - x['Current Stock']) / 1000) * 1000))
-        if x['DOS_Hari'] < 45 and x['Suggested Order Qty'] > 0 else 0, axis=1
+    # Inventory Exposure (IDR)
+    df_cover['Inventory Value'] = df_cover['Current Stock'] * df_cover['Unit Cost']
+    
+    # Tampilkan
+    st.dataframe(
+        df_cover[['Item', 'Current Stock', 'Avg_Forecast', 'Stock Cover (bulan)', 'Stock Cover (hari)', 'Status', 'Inventory Value']],
+        use_container_width=True,
+        column_config={
+            "Inventory Value": st.column_config.NumberColumn(format="Rp %d")
+        }
     )
-    df_sim['Sea Qty'] = df_sim['Suggested Order Qty'] - df_sim['Air Qty']
     
-    # CASH IMPACT
-    air_cost_multiplier = 4.0  # Air 4x cost
-    df_sim['Air Cost (B)'] = (df_sim['Air Qty'] * df_sim['Unit Cost'] * air_cost_multiplier) / 1_000_000_000
-    df_sim['Sea Cost (B)'] = (df_sim['Sea Qty'] * df_sim['Unit Cost'] * 1.1) / 1_000_000_000
-    df_sim['Total Cost (B)'] = df_sim['Air Cost (B)'] + df_sim['Sea Cost (B)']
+    # Summary metrics
+    total_inventory = df_cover['Inventory Value'].sum()
+    total_stock_units = df_cover['Current Stock'].sum()
     
-    # FINAL ROUTE DECISION
-    def get_final_route(row):
-        if row['Air Qty'] > 0 and row['Sea Qty'] > 0:
-            return f"✈️ SPLIT: {row['Air Qty']:,.0f} Air + {row['Sea Qty']:,.0f} Sea"
-        elif row['Air Qty'] > 0:
+    col_met1, col_met2, col_met3, col_met4 = st.columns(4)
+    with col_met1:
+        st.metric("💰 Total Inventory Value", f"Rp {total_inventory:,.0f}")
+    with col_met2:
+        st.metric("📦 Total Stock (units)", f"{total_stock_units:,.0f}")
+    with col_met3:
+        kritis_count = len(df_cover[df_cover['Status'] == '🔴 KRITIS'])
+        st.metric("⚠️ SKU Kritis", kritis_count)
+    with col_met4:
+        aman_count = len(df_cover[df_cover['Status'] == '🟢 AMAN'])
+        st.metric("✅ SKU Aman", aman_count)
+    
+    # ===== PART 5: REKOMENDASI IMPORT PLAN =====
+    st.markdown("### 🚢 5. Import Plan Recommendation (Cash Limit: IDR 4B | WH Capacity: 4,000 units)")
+    
+    # Hitung kebutuhan order
+    df_order = df_a[['Item', 'Current Stock', 'Unit Cost', 'MOQ', 'M1', 'M2', 'M3']].copy()
+    
+    # Konversi numerik
+    for col in df_order.columns:
+        if col != 'Item':
+            df_order[col] = pd.to_numeric(df_order[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+    
+    # Kebutuhan 3 bulan
+    df_order['Kebutuhan_3M'] = df_order['M1'] + df_order['M2'] + df_order['M3']
+    df_order['Defisit'] = df_order['Kebutuhan_3M'] - df_order['Current Stock']
+    df_order['Defisit'] = df_order['Defisit'].apply(lambda x: max(0, x))
+    
+    # Order quantity (kelipatan MOQ)
+    df_order['Order_Qty'] = df_order.apply(
+        lambda x: int(np.ceil(x['Defisit'] / x['MOQ']) * x['MOQ']) if x['Defisit'] > 0 else 0,
+        axis=1
+    )
+    
+    # Split logic (Air untuk yang kritis)
+    df_order['DOS'] = df_cover['Stock Cover (hari)'].values
+    df_order['Air_Qty'] = df_order.apply(
+        lambda x: min(x['Order_Qty'], int(np.ceil(max(0, x['M1'] - x['Current Stock']) / 1000) * 1000))
+        if x['DOS'] < 45 and x['Order_Qty'] > 0 else 0,
+        axis=1
+    )
+    df_order['Sea_Qty'] = df_order['Order_Qty'] - df_order['Air_Qty']
+    
+    # Cost calculation
+    air_multiplier = 4.0
+    df_order['Air_Cost'] = df_order['Air_Qty'] * df_order['Unit Cost'] * air_multiplier
+    df_order['Sea_Cost'] = df_order['Sea_Qty'] * df_order['Unit Cost'] * 1.1
+    df_order['Total_Cost'] = df_order['Air_Cost'] + df_order['Sea_Cost']
+    
+    # Route decision
+    def get_route(row):
+        if row['Air_Qty'] > 0 and row['Sea_Qty'] > 0:
+            return f"✈️ SPLIT: {row['Air_Qty']:,.0f} Air + {row['Sea_Qty']:,.0f} Sea"
+        elif row['Air_Qty'] > 0:
             return "✈️ AIR (URGENT)"
-        elif row['Sea Qty'] > 0:
+        elif row['Sea_Qty'] > 0:
             return "🚢 SEA"
         else:
             return "⏸️ TUNDA"
     
-    df_sim['Final Route'] = df_sim.apply(get_final_route, axis=1)
+    df_order['Route'] = df_order.apply(get_route, axis=1)
     
-    # CUMULATIVE TRACKING
-    df_sim['Cumulative Cash'] = df_sim['Total Cost (B)'].cumsum()
-    df_sim['Cumulative WH'] = df_sim['Warehouse Space Impact (M1)'].cumsum()
-    
-    # --- DISPLAY TABLE ---
-    st.markdown("#### 📋 SKU Replenishment Plan")
-    
-    display_cols = ['Item', 'Forecast Model', 'Current Stock', 'DOS_Hari', 
-                   'Risk Status', 'Air Qty', 'Sea Qty', 'Final Route', 
-                   'Total Cost (B)', 'Warehouse Space Impact (M1)']
-    
-    # Pastikan kolom yang ditampilkan ada di dataframe
-    available_cols = [col for col in display_cols if col in df_sim.columns]
-    
-    # Styling berdasarkan risk
-    def highlight_risk(row):
-        if row['Risk Status'] == '🔴 KRITIS':
-            return ['background-color: #fee2e2'] * len(row)
-        elif row['Risk Status'] == '🟡 WASPADA':
-            return ['background-color: #fef9c3'] * len(row)
-        elif row['Risk Status'] == '🟢 AMAN':
-            return ['background-color: #dcfce7'] * len(row)
-        else:
-            return [''] * len(row)
+    # Tampilkan rekomendasi
+    display_order = df_order[['Item', 'Current Stock', 'DOS', 'M1', 'Order_Qty', 'Air_Qty', 'Sea_Qty', 'Route', 'Total_Cost']].copy()
+    display_order['Total_Cost_B'] = (display_order['Total_Cost'] / 1_000_000_000).round(2)
     
     st.dataframe(
-        df_sim[available_cols].style.apply(highlight_risk, axis=1),
+        display_order,
         use_container_width=True,
         column_config={
-            "Total Cost (B)": st.column_config.NumberColumn(format="Rp %.2f B"),
-            "Warehouse Space Impact (M1)": st.column_config.NumberColumn(format="%d units")
+            "DOS": "Cover (hari)",
+            "Total_Cost": st.column_config.NumberColumn(format="Rp %d"),
+            "Total_Cost_B": "Cost (B IDR)"
         }
     )
     
-    # --- CONSTRAINTS VALIDATION ---
-    st.markdown("#### ⚖️ Constraints Validation")
+    # Summary rekomendasi
+    total_cost_b = display_order['Total_Cost_B'].sum()
+    total_air_qty = display_order['Air_Qty'].sum()
+    total_sea_qty = display_order['Sea_Qty'].sum()
     
-    total_cost = df_sim['Total Cost (B)'].sum()
-    total_wh = df_sim['Warehouse Space Impact (M1)'].sum()
+    col_rec1, col_rec2, col_rec3 = st.columns(3)
+    with col_rec1:
+        st.metric("💰 Total Import Cost", f"Rp {total_cost_b:.2f} B", 
+                 delta=f"Sisa: Rp {4 - total_cost_b:.2f} B",
+                 delta_color="normal" if total_cost_b <= 4 else "inverse")
+    with col_rec2:
+        st.metric("✈️ Air Freight (M1)", f"{total_air_qty:,.0f} units")
+    with col_rec3:
+        st.metric("🚢 Sea Freight", f"{total_sea_qty:,.0f} units")
     
-    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+    # Alert jika over budget
+    if total_cost_b > 4:
+        st.error("🚨 **OVER BUDGET!** Total biaya melebihi limit IDR 4B. Rekomendasi: Kurangi air freight atau negosiasi split order.")
     
-    with col_m1:
-        st.metric("💰 Total Import Value", f"Rp {total_cost:.2f} B", 
-                 delta=f"Limit: Rp {budget_limit:.1f} B",
-                 delta_color="normal" if total_cost <= budget_limit else "inverse")
+    # ===== PART 6: LIVE DEFENSE SIMULATION =====
+    st.markdown("---")
+    st.markdown("## 🎯 LIVE DEFENSE SCENARIO SIMULATION")
+    st.info("Geser slider di bawah untuk simulasi perubahan asumsi manajemen (cash turun / kapasitas gudang berkurang)")
     
-    with col_m2:
-        st.metric("🏭 WH Incoming M1", f"{total_wh:,.0f} units",
-                 delta=f"Capacity: {wh_capacity:,.0f} units",
-                 delta_color="normal" if total_wh <= wh_capacity else "inverse")
+    col_s1, col_s2, col_s3 = st.columns(3)
+    with col_s1:
+        scenario_growth = st.slider("📈 Demand Adjustment (%)", -30, 50, 0, 5)
+    with col_s2:
+        budget_limit = st.number_input("💰 Budget Limit (B IDR)", 1.0, 10.0, 4.0, 0.5)
+    with col_s3:
+        wh_capacity = st.number_input("🏭 WH Capacity Left", 1000, 10000, 4000, 500)
     
-    with col_m3:
-        cash_remaining = budget_limit - total_cost
-        st.metric("💵 Sisa Kas", f"Rp {cash_remaining:.2f} B",
-                 delta="Aman" if cash_remaining >= 0 else "Defisit")
+    # Terapkan skenario
+    multiplier = 1 + (scenario_growth / 100)
     
-    with col_m4:
-        wh_remaining = wh_capacity - total_wh
-        st.metric("📦 Sisa Gudang", f"{wh_remaining:,.0f} units",
-                 delta="Tersedia" if wh_remaining >= 0 else "Overcapacity")
+    df_live = df_order.copy()
+    df_live['M1_Sim'] = df_live['M1'] * multiplier
+    df_live['M2_Sim'] = df_live['M2'] * multiplier
+    df_live['M3_Sim'] = df_live['M3'] * multiplier
+    df_live['Kebutuhan_Sim'] = df_live['M1_Sim'] + df_live['M2_Sim'] + df_live['M3_Sim']
+    df_live['Defisit_Sim'] = df_live['Kebutuhan_Sim'] - df_live['Current Stock']
+    df_live['Defisit_Sim'] = df_live['Defisit_Sim'].apply(lambda x: max(0, x))
     
-    # ALERTS
-    if total_cost > budget_limit:
-        st.error("🚨 **OVER BUDGET!** Rekomendasi: Kurangi Air Freight atau negosiasi split order.")
-    
-    if total_wh > wh_capacity:
-        st.error("🏭 **GUDANG PENUH!** Rekomendasi: Jadwalkan pengiriman bertahap.")
-    
-    # --- VISUALISASI ---
-    st.markdown("#### 📊 Cash Allocation by SKU")
-    
-    fig_cash = px.bar(
-        df_sim[df_sim['Total Cost (B)'] > 0],
-        x='Item', 
-        y=['Air Cost (B)', 'Sea Cost (B)'],
-        title="Import Value Breakdown (Air vs Sea)",
-        labels={'value': 'Billion IDR', 'variable': 'Route'},
-        color_discrete_map={'Air Cost (B)': '#ef4444', 'Sea Cost (B)': '#3b82f6'},
-        barmode='stack'
+    # Order ulang
+    df_live['Order_Sim'] = df_live.apply(
+        lambda x: int(np.ceil(x['Defisit_Sim'] / x['MOQ']) * x['MOQ']) if x['Defisit_Sim'] > 0 else 0,
+        axis=1
     )
-    fig_cash.add_hline(y=budget_limit, line_dash="dash", line_color="red",
-                      annotation_text=f"Budget Limit: Rp {budget_limit}B")
-    st.plotly_chart(fig_cash, use_container_width=True)
     
-    # --- DOS CHART ---
-    st.markdown("#### 📈 Stock Cover (Days of Supply)")
-    
-    fig_dos = px.bar(
-        df_sim,
-        x='Item',
-        y='DOS_Hari',
-        color='Risk Status',
-        title="Days of Supply per SKU",
-        color_discrete_map={
-            '🔴 KRITIS': '#ef4444',
-            '🟡 WASPADA': '#f59e0b',
-            '🟢 AMAN': '#10b981',
-            '🔵 BERLEBIH': '#3b82f6'
-        }
+    # Split ulang
+    df_live['DOS_Sim'] = df_live['Current Stock'] / ((df_live['M1_Sim'] + df_live['M2_Sim'] + df_live['M3_Sim'])/3) * 30
+    df_live['Air_Sim'] = df_live.apply(
+        lambda x: min(x['Order_Sim'], int(np.ceil(max(0, x['M1_Sim'] - x['Current Stock']) / 1000) * 1000))
+        if x['DOS_Sim'] < 45 and x['Order_Sim'] > 0 else 0,
+        axis=1
     )
-    fig_dos.add_hline(y=45, line_dash="dash", line_color="red", annotation_text="Kritis <45 hr")
-    fig_dos.add_hline(y=60, line_dash="dash", line_color="orange", annotation_text="Waspada 45-60 hr")
-    fig_dos.add_hline(y=90, line_dash="dash", line_color="green", annotation_text="Aman 60-90 hr")
-    st.plotly_chart(fig_dos, use_container_width=True)
+    df_live['Sea_Sim'] = df_live['Order_Sim'] - df_live['Air_Sim']
+    
+    # Cost ulang
+    df_live['Cost_Sim'] = (df_live['Air_Sim'] * df_live['Unit Cost'] * air_multiplier + 
+                           df_live['Sea_Sim'] * df_live['Unit Cost'] * 1.1) / 1_000_000_000
+    
+    # Tampilkan hasil live
+    st.markdown("#### 📊 Adjusted Plan dengan Asumsi Baru")
+    
+    display_live = df_live[['Item', 'Current Stock', 'DOS_Sim', 'M1_Sim', 'Order_Sim', 'Air_Sim', 'Sea_Sim', 'Cost_Sim']].copy()
+    display_live['DOS_Sim'] = display_live['DOS_Sim'].round(0)
+    display_live['M1_Sim'] = display_live['M1_Sim'].round(0)
+    
+    st.dataframe(display_live, use_container_width=True)
+    
+    # Validasi
+    total_cost_live = df_live['Cost_Sim'].sum()
+    total_wh_live = df_live['Air_Sim'].sum()
+    
+    col_v1, col_v2, col_v3, col_v4 = st.columns(4)
+    with col_v1:
+        st.metric("💰 Total Cost", f"Rp {total_cost_live:.2f} B", 
+                 delta=f"Limit: {budget_limit:.1f} B",
+                 delta_color="normal" if total_cost_live <= budget_limit else "inverse")
+    with col_v2:
+        st.metric("🏭 WH Incoming", f"{total_wh_live:,.0f} units",
+                 delta=f"Cap: {wh_capacity:,.0f}",
+                 delta_color="normal" if total_wh_live <= wh_capacity else "inverse")
+    with col_v3:
+        st.metric("💵 Sisa Kas", f"Rp {budget_limit - total_cost_live:.2f} B")
+    with col_v4:
+        st.metric("📦 Sisa Gudang", f"{wh_capacity - total_wh_live:,.0f} units")
+    
+    # Final recommendation
+    st.markdown("#### ✅ Final Recommendation")
+    
+    if total_cost_live <= budget_limit and total_wh_live <= wh_capacity:
+        st.success("""
+        **Plan ini AMAN untuk dieksekusi:**
+        - Budget terpenuhi
+        - Kapasitas gudang mencukupi
+        - SKU kritis (Device C) diutamakan dengan air freight
+        """)
+    else:
+        st.error("""
+        **Plan perlu PENYESUAIAN:**
+        - Prioritaskan hanya Device C untuk air freight
+        - Device A negosiasi split order (kirim 3.000 air, sisanya laut)
+        - Device B tunda order
+        """)
+    
+    # Export ready note
+    st.caption("✅ Dashboard siap untuk presentasi & live defense Q&A")
 
 # ==========================================
 # TAB 2: DEAD STOCK & CASH UNLOCK
