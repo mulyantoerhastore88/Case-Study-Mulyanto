@@ -343,7 +343,7 @@ with tab2:
         """)
 
 # ==========================================
-# TAB 3: S&OP RESTRUCTURE DESIGN
+# TAB 3: S&OP RESTRUCTURE DESIGN (FIXED)
 # ==========================================
 with tab3:
     st.markdown("### ⚙️ S&OP Governance & Cycle Restructure")
@@ -363,21 +363,51 @@ with tab3:
         
         st.dataframe(cadence, use_container_width=True, hide_index=True)
         
-        # Timeline visual
+        # --- PERBAIKAN: TIMELINE VISUAL DENGAN FORMAT YANG BENAR ---
+        st.markdown("#### 📊 S&OP Timeline")
+        
+        # Buat data untuk timeline
+        timeline_data = pd.DataFrame({
+            'Task': ['Demand Review', 'Supply Review', 'Pre-S&OP', 'Executive S&OP'],
+            'Start': ['2024-01-01', '2024-01-08', '2024-01-15', '2024-01-22'],
+            'Finish': ['2024-01-07', '2024-01-14', '2024-01-21', '2024-01-28'],
+            'Owner': ['Sales', 'Supply Chain', 'Lead', 'Management']
+        })
+        
+        # Konversi ke datetime
+        timeline_data['Start'] = pd.to_datetime(timeline_data['Start'])
+        timeline_data['Finish'] = pd.to_datetime(timeline_data['Finish'])
+        
+        # Buat timeline chart dengan cara yang benar
         fig_timeline = px.timeline(
-            pd.DataFrame({
-                'Task': ['Demand Review', 'Supply Review', 'Pre-S&OP', 'Executive S&OP'],
-                'Start': [0, 7, 14, 21],
-                'Finish': [7, 14, 21, 28],
-                'Owner': ['Sales', 'SCM', 'Lead', 'Mgmt']
-            }),
+            timeline_data,
             x_start='Start',
             x_end='Finish',
             y='Task',
             color='Owner',
-            title="S&OP Timeline (Days)"
+            title="S&OP Monthly Cycle",
+            color_discrete_map={
+                'Sales': '#3b82f6',
+                'Supply Chain': '#10b981',
+                'Lead': '#f59e0b',
+                'Management': '#ef4444'
+            }
         )
-        fig_timeline.update_xaxis(title="Day of Month")
+        
+        # PERBAIKAN: Gunakan update_layout untuk mengatur axis
+        fig_timeline.update_layout(
+            xaxis=dict(
+                title="Week of Month",
+                tickformat="%d %b"  # Format tanggal: day month
+            ),
+            yaxis=dict(
+                title="",
+                autorange="reversed"  # Biar task teratas di grafik
+            ),
+            height=300,
+            showlegend=True
+        )
+        
         st.plotly_chart(fig_timeline, use_container_width=True)
     
     with col_c2:
@@ -391,38 +421,106 @@ with tab3:
         })
         
         st.dataframe(kpi_data, use_container_width=True, hide_index=True)
+        
+        # Gauge chart untuk Forecast Accuracy
+        fig_gauge = go.Figure(go.Indicator(
+            mode="gauge+number+delta",
+            value=62,
+            domain={'x': [0, 1], 'y': [0, 1]},
+            title={'text': "Forecast Accuracy", 'font': {'size': 16}},
+            delta={'reference': 85, 'increasing': {'color': "red"}},
+            gauge={
+                'axis': {'range': [0, 100], 'tickwidth': 1},
+                'bar': {'color': "#3b82f6"},
+                'steps': [
+                    {'range': [0, 50], 'color': '#fee2e2'},
+                    {'range': [50, 75], 'color': '#fef9c3'},
+                    {'range': [75, 100], 'color': '#dcfce7'}
+                ],
+                'threshold': {
+                    'line': {'color': "red", 'width': 4},
+                    'thickness': 0.75,
+                    'value': 85
+                }
+            }
+        ))
+        fig_gauge.update_layout(height=200, margin=dict(l=30, r=30, t=50, b=30))
+        st.plotly_chart(fig_gauge, use_container_width=True)
     
     # RACI Matrix
-    st.markdown("#### 🏛️ RACI Matrix")
+    st.markdown("#### 🏛️ RACI Matrix: Who Decides What?")
     
     raci = pd.DataFrame({
-        'Role': ['Demand Owner (Sales)', 'Supply Owner (SCM)', 'S&OP Lead', 'Final Decision Maker'],
+        'Role': ['Demand Owner (Sales)', 'Supply Owner (Supply Chain)', 'S&OP Lead', 'Final Decision Maker (Management)'],
         'Responsibility': [
-            'Sales Forecast, Promotion Plan',
-            'Inventory Plan, Procurement',
-            'Facilitate Process, Scenario Planning',
-            'Budget Approval, Conflict Resolution'
+            '📊 Sales Forecast, Promotion Plan, Market Intelligence',
+            '📦 Inventory Plan, Procurement, Warehouse Allocation',
+            '🔄 Facilitate Process, Scenario Planning, Conflict Resolution',
+            '✅ Budget Approval, Strategic Decisions, Final Sign-off'
         ],
         'Decision Rights': [
-            'Challenge & Adjust Forecast',
-            'Allocate Inventory',
-            'Recommend Best Option',
-            'Final Sign-off'
+            'Challenge & Adjust Forecast, Input Promo',
+            'Allocate Inventory, Order Placement',
+            'Recommend Best Option, Escalate Issues',
+            'Final Decision on Budget & Inventory'
         ]
     })
     
     st.dataframe(raci, use_container_width=True, hide_index=True)
     
     # Professional Challenge Strategy
-    st.markdown("#### 🛡️ How to Challenge +50% Sales Target")
+    st.markdown("#### 🛡️ Professional Challenge Strategy (Menantang Target Sales +50%)")
     
-    st.info("""
-    **Professional Challenge Script:**
+    col_strat1, col_strat2 = st.columns(2)
     
-    "Management, saya memahami target +50% adalah aspirasi yang baik. Namun dengan forecast accuracy 62% dan histori pertumbuhan 18%, saya usul pendekatan bertahap:
+    with col_strat1:
+        st.markdown("""
+        <div class='card'>
+            <h4>🔍 Triangulation Method</h4>
+            <p><b>Question:</b> "How does this +50% growth compare to last year's actual + promotion impact?"</p>
+            <p><b>Logic:</b> Last year growth 18% with 2 major campaigns. To achieve +50%, we need 32% incremental growth.</p>
+            <p><b>Example:</b> "Can we map which campaigns will cover the 32% gap? If not, we risk overstock."</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div class='card'>
+            <h4>⚠️ Risk Assessment</h4>
+            <p><b>Question:</b> "What's the probability (P10/P50/P90) of achieving this target?"</p>
+            <p><b>Logic:</b> With 62% forecast accuracy, historical error = ±20%.</p>
+            <p><b>Example:</b> "Based on data, P50 = +25%, P10 = +40%. I recommend planning for +30% with upside option."</p>
+        </div>
+        """, unsafe_allow_html=True)
     
-    1. **Triangulation:** 'Bagaimana +50% ini dibanding last year + promotion?'
-    2. **Risk Assessment:** 'Probabilitas tercapai hanya 30% berdasarkan data historis'
-    3. **Phased Commitment:** 'Saya siapkan inventory untuk +30% dulu. Sisanya pakai air freight jika konfirmasi di M2'
-    4. **Scenario Planning:** 'Jika miss 20%, dampak overstock Rp 5B - kita hindari repeat mistake'"
+    with col_strat2:
+        st.markdown("""
+        <div class='card'>
+            <h4>📊 Scenario Planning</h4>
+            <p><b>Question:</b> "What if we only achieve 60% of target? What's the inventory impact?"</p>
+            <p><b>Logic:</b> Previous overstock IDR 5B happened because optimistic forecast.</p>
+            <p><b>Example:</b> "If we miss by 20%, we'll have Rp 5-7B excess stock. Let's phase the procurement."</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div class='card'>
+            <h4>🔄 Phased Commitment</h4>
+            <p><b>Question:</b> "Can we split the target into firm vs optional buckets?"</p>
+            <p><b>Logic:</b> Match inventory commitment with sales certainty.</p>
+            <p><b>Example:</b> "I'll commit inventory for +25% now. The remaining +25% we can do with air freight if confirmed by M2."</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Summary
+    st.success("""
+    **🎯 Final Professional Challenge Summary:**
+    
+    "Management, saya paham target +50% adalah aspirasi yang baik. Tapi dengan forecast accuracy 62% dan histori 18%,
+    saya usul pendekatan bertahap:
+    
+    1. **Base Case:** Siapkan inventory untuk +30% (lebih realistis)
+    2. **Upside Option:** Jika sales menunjukkan tren positif di M1-M2, akselerasi dengan air freight
+    3. **Downside Protection:** Jika meleset, kita hanya terikat 60% inventory commitment
+    
+    Ini menjaga cash flow dan menghindari overstock seperti kejadian sebelumnya (IDR 5B)."
     """)
