@@ -90,7 +90,7 @@ with tab1:
             **1. Klasifikasi Model (Kolom T):**
             ```
             =IF(RSQ(F2:Q2, {1..12}) > 0.8, "Linear Trend",
-               IF(MAX(F2:Q2)/MEDIAN(F2:Q2) > 1.5, "Seasonal",
+               IF(MAX(F2:Q2)/MEDIAN(F2:Q2) > 1.5, "Seasonal Method",
                "Moving Average"))
             ```
             
