@@ -855,7 +855,7 @@ with tab2:
     """)
 
 # ==========================================
-# TAB 3: S&OP RESTRUCTURE DESIGN (FIXED)
+# TAB 3: S&OP RESTRUCTURE DESIGN (FIXED & IMPROVED)
 # ==========================================
 with tab3:
     st.markdown("### ⚙️ S&OP Governance & Cycle Restructure")
@@ -875,7 +875,7 @@ with tab3:
         
         st.dataframe(cadence, use_container_width=True, hide_index=True)
         
-        # --- PERBAIKAN: TIMELINE VISUAL DENGAN FORMAT YANG BENAR ---
+        # --- TIMELINE VISUAL DENGAN FORMAT YANG BENAR ---
         st.markdown("#### 📊 S&OP Timeline")
         
         # Buat data untuk timeline
@@ -906,7 +906,7 @@ with tab3:
             }
         )
         
-        # PERBAIKAN: Gunakan update_layout untuk mengatur axis
+        # Gunakan update_layout untuk mengatur axis
         fig_timeline.update_layout(
             xaxis=dict(
                 title="Week of Month",
@@ -958,8 +958,51 @@ with tab3:
         ))
         fig_gauge.update_layout(height=200, margin=dict(l=30, r=30, t=50, b=30))
         st.plotly_chart(fig_gauge, use_container_width=True)
+
+    # --- TAMBAHAN BARU: VISUALISASI GAP ANALYSIS (Menjawab Requirement Soal) ---
+    st.markdown("---")
+    st.markdown("### 📊 Performance & Gap Analysis")
+    col_gap1, col_gap2 = st.columns(2)
+
+    with col_gap1:
+        st.markdown("#### 🎯 Historical Forecast Accuracy (62%)")
+        st.info("Simulasi deviasi forecast 6 bulan terakhir yang memicu Overstock 5 Miliar.")
+        
+        # Generate data simulasi akurasi rata-rata 62%
+        acc_data = pd.DataFrame({
+            'Month': ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            'Actual Sales': [9800, 10000, 10200, 10500, 11100, 11800],
+            'Sales Forecast': [15800, 16100, 16400, 16900, 17900, 19000] # Menghasilkan error ~38% (Akurasi 62%)
+        })
+        acc_data['Overforecast (Error)'] = acc_data['Sales Forecast'] - acc_data['Actual Sales']
+        
+        fig_acc = px.bar(acc_data, x='Month', y=['Actual Sales', 'Overforecast (Error)'], 
+                         title="Actual vs Forecast (Gap = Dead Stock Potential)",
+                         barmode='stack', 
+                         color_discrete_map={'Actual Sales': '#3b82f6', 'Overforecast (Error)': '#ef4444'})
+        fig_acc.update_layout(height=300, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+        st.plotly_chart(fig_acc, use_container_width=True)
+
+    with col_gap2:
+        st.markdown("#### 📉 Target Inventory Reduction (-20%)")
+        st.info("Proyeksi penurunan nilai inventory dari Rp 25 Miliar menuju Rp 20 Miliar.")
+        
+        # Trajectory data
+        inv_trajectory = pd.DataFrame({
+            'Month': ['Current', 'M1', 'M2', 'M3 (Unlock Phase)', 'M4', 'M5', 'M6 (Target)'],
+            'Inventory Value': [25.0, 24.5, 24.0, 20.0, 19.5, 20.0, 20.0],
+            'Target Line': [25.0, 24.1, 23.3, 22.5, 21.6, 20.8, 20.0]
+        })
+        
+        fig_inv = go.Figure()
+        fig_inv.add_trace(go.Scatter(x=inv_trajectory['Month'], y=inv_trajectory['Inventory Value'], mode='lines+markers+text', name='Projected Value', line=dict(color='#3b82f6', width=3), text=inv_trajectory['Inventory Value'], textposition="top right"))
+        fig_inv.add_trace(go.Scatter(x=inv_trajectory['Month'], y=inv_trajectory['Target Line'], mode='lines', name='-20% Target Path', line=dict(color='#10b981', width=2, dash='dash')))
+        fig_inv.update_layout(title="Inventory Trajectory (Billion IDR)", height=300, yaxis_title="IDR (Miliar)", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+        st.plotly_chart(fig_inv, use_container_width=True)
+
+    st.markdown("---")
     
-    # RACI Matrix
+    # RACI Matrix (Posisi dikembalikan seperti semula)
     st.markdown("#### 🏛️ RACI Matrix: Who Decides What?")
     
     raci = pd.DataFrame({
