@@ -514,7 +514,7 @@ with tab2:
         st.markdown("#### 🛡️ Proposed Portfolio Clean-up Governance")
         st.info("SOP untuk mencegah kejadian Overstock Device Z terulang di masa depan.")
         st.markdown("""
-        * **Phase-Out Trigger (T-4 Months):** Segala bentuk aktivitas *Import / Procurement* untuk produk lama wajib dihentikan **4 bulan** sebelum peluncuran generasi pengganti.
+        * **Phase-Out Trigger (T-4 Months):** Segala bentuk aktivitas *Import / Procurement* untuk produk lama wajib dihentikan **4 bulan** sebelum peluncuran product pengganti.
         * **Auto-Clearance Mandate (T-2 Months):** Jika H-60 hari produk lama masih memiliki stok >2 bulan, tim *Marketing* diizinkan mengeksekusi *Bundling Promo* otomatis tanpa eskalasi berlapis.
         """)
 
