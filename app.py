@@ -130,22 +130,23 @@ with tab1:
     
     # ===== VISUALISASI FULL TIMELINE (HISTORICAL + FORECAST) =====
     st.markdown("#### 📈 Full Timeline: Historical & Forecast Scenarios")
+    st.info("💡 **Gunakan filter di bawah** untuk mensimulasikan proyeksi demand dibandingkan dengan data historis.")
     
-    col_vis1, col_vis2 = st.columns([1, 3])
-    
-    with col_vis1:
-        st.info("💡 **Gunakan filter di bawah** untuk mensimulasikan proyeksi demand dibandingkan dengan data historis.")
+    # FILTER DI ATAS CHART (Berjajar rapi menggunakan 2 kolom)
+    col_filter1, col_filter2 = st.columns(2)
+    with col_filter1:
         selected_sku = st.selectbox("1️⃣ Pilih SKU:", df_a['Item'].tolist(), key="sku_selector")
-        scenario_filter = st.radio("2️⃣ Tampilkan Skenario:", 
+    with col_filter2:
+        scenario_filter = st.selectbox("2️⃣ Tampilkan Skenario:", 
                                    ["Semua Skenario", "Base Scenario", "Aggressive (+20%)", "Downside (-20%)"])
     
-    # Ambil data SKU terpilih dari DataFrame asli
+    # Ambil data SKU terpilih
     sku_data_full = df_a[df_a['Item'] == selected_sku].iloc[0]
     
     # 1. Siapkan Data Historis (Jan - Dec)
     hist_months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     hist_values = [sku_data_full[m] for m in hist_months]
-    dec_value = hist_values[-1] # Titik sambung untuk grafik forecast
+    dec_value = hist_values[-1] # Titik sambung
     
     # 2. Siapkan Data Forecast (M1 - M6)
     fcst_months = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6']
@@ -153,15 +154,13 @@ with tab1:
     agg_values = [v * 1.2 for v in base_values]
     down_values = [v * 0.8 for v in base_values]
     
-    # 3. Bentuk DataFrame terpisah untuk Plotly
+    # 3. Bentuk DataFrame terpisah
     df_hist = pd.DataFrame({'Bulan': hist_months, 'Demand': hist_values, 'Tipe': 'Historical (Aktual)'})
-    
-    # (Catatan: Kita tambahkan 'Dec' di awal forecast agar garisnya tersambung mulus/tidak terputus)
     df_base = pd.DataFrame({'Bulan': ['Dec'] + fcst_months, 'Demand': [dec_value] + base_values, 'Tipe': 'Base Forecast'})
     df_agg = pd.DataFrame({'Bulan': ['Dec'] + fcst_months, 'Demand': [dec_value] + agg_values, 'Tipe': 'Aggressive (+20%)'})
     df_down = pd.DataFrame({'Bulan': ['Dec'] + fcst_months, 'Demand': [dec_value] + down_values, 'Tipe': 'Downside (-20%)'})
     
-    # 4. Logika Filter Skenario
+    # 4. Logika Filter
     plot_data = [df_hist]
     if scenario_filter == "Semua Skenario":
         plot_data.extend([df_base, df_agg, df_down])
@@ -174,8 +173,8 @@ with tab1:
         
     df_plot_final = pd.concat(plot_data, ignore_index=True)
     
-    # 5. Render Grafik dengan Plotly
-    all_months_ordered = hist_months + fcst_months # Urutan baku X-Axis
+    # 5. Render Grafik (Full Width)
+    all_months_ordered = hist_months + fcst_months
     
     fig_line = px.line(
         df_plot_final, 
@@ -185,32 +184,26 @@ with tab1:
         title=f"End-to-End Demand Visibility: {selected_sku}",
         markers=True,
         color_discrete_map={
-            'Historical (Aktual)': '#64748b', # Abu-abu elegan
-            'Base Forecast': '#3b82f6',       # Biru
-            'Aggressive (+20%)': '#10b981',   # Hijau
-            'Downside (-20%)': '#ef4444'      # Merah
+            'Historical (Aktual)': '#64748b', 
+            'Base Forecast': '#3b82f6',       
+            'Aggressive (+20%)': '#10b981',   
+            'Downside (-20%)': '#ef4444'      
         }
     )
     
-    # Kunci urutan bulan
     fig_line.update_xaxes(categoryorder='array', categoryarray=all_months_ordered)
     
-    # PERBAIKAN BUG: Pisahkan pembuatan garis vertikal dengan teks anotasi
     fig_line.add_vline(x='Dec', line_width=2, line_dash="dot", line_color="gray")
     fig_line.add_annotation(
-        x='Dec', 
-        y=1.05,           # Posisi Y (di atas grafik sedikit)
-        yref='paper',     # Referensi posisi agar responsif
-        text="Mulai Forecast ➡️", 
-        showarrow=False, 
-        font=dict(color="gray", size=12),
-        xanchor="right"   # Posisi teks di sebelah kiri garis
+        x='Dec', y=1.05, yref='paper', text="Mulai Forecast ➡️", 
+        showarrow=False, font=dict(color="gray", size=12), xanchor="right"
     )
     
-    fig_line.update_layout(height=400, hovermode='x unified')
+    # Tinggi chart ditambah sedikit (450) agar semakin lega dilihat
+    fig_line.update_layout(height=450, hovermode='x unified', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     
-    with col_vis2:
-        st.plotly_chart(fig_line, use_container_width=True)
+    # CHART DIREKSEKUSI DI LUAR KOLOM AGAR FULL WIDTH
+    st.plotly_chart(fig_line, use_container_width=True)
 
     # ===== PART 4: STOCK COVER & INVENTORY EXPOSURE =====
     st.markdown("### 📦 3. Stock Health & Replenishment Trigger")
