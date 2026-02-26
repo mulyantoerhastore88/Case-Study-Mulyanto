@@ -511,12 +511,13 @@ with tab2:
             st.dataframe(display_port, use_container_width=True, hide_index=True)
         with col_mp2:
             fig_gauge_5b = go.Figure(go.Indicator(
-                mode="gauge+number", value=total_unlock_target, number={'valueformat': '.1f', 'prefix': 'Rp ', 'suffix': ' Miliar'},
-                title={'text': "Total Cash Unlock"},
+                mode="gauge+number", value=total_unlock_target, 
+                number={'valueformat': '.1f', 'prefix': 'Rp ', 'suffix': ' Miliar', 'font': {'size': 28}}, # Ukuran font dikunci
+                title={'text': "Total Cash Unlock", 'font': {'size': 16}}, # Ukuran judul dikunci
                 gauge={'axis': {'range': [None, 6]}, 'bar': {'color': "#10b981"}, 'steps': [{'range': [0, 5], 'color': "#fee2e2"}, {'range': [5, 6], 'color': "#dcfce7"}], 'threshold': {'line': {'color': "red", 'width': 4}, 'thickness': 0.75, 'value': 5}}
             ))
-            fig_gauge_5b.update_layout(height=200, margin=dict(l=20, r=20, t=30, b=20))
-            st.plotly_chart(fig_gauge_5b, use_container_width=True)
+            # Tinggi ditambah menjadi 260 agar ada ruang ekstra di bawah
+            fig_gauge_5b.update_layout(height=260, margin=dict(l=20, r=20, t=40, b=20))
 
         st.markdown("---")
         
@@ -699,14 +700,17 @@ with tab3:
             
             fig_gauge = go.Figure(go.Indicator(
                 mode="gauge+number+delta", value=acc_val, domain={'x': [0, 1], 'y': [0, 1]}, 
-                title={'text': "Forecast Accuracy"}, delta={'reference': acc_target, 'increasing': {'color': "red"}}, 
+                title={'text': "Forecast Accuracy", 'font': {'size': 16}}, # Ukuran judul dikunci
+                number={'font': {'size': 36}}, # Ukuran angka utama dikunci
+                delta={'reference': acc_target, 'increasing': {'color': "red"}, 'font': {'size': 18}}, # Ukuran angka selisih dikunci
                 gauge={
                     'axis': {'range': [0, 100]}, 'bar': {'color': "#3b82f6"}, 
                     'steps': [{'range': [0, 50], 'color': '#fee2e2'}, {'range': [50, 75], 'color': '#fef9c3'}, {'range': [75, 100], 'color': '#dcfce7'}], 
                     'threshold': {'line': {'color': "red", 'width': 4}, 'thickness': 0.75, 'value': acc_target}
                 }
             ))
-            fig_gauge.update_layout(height=200, margin=dict(l=30, r=30, t=50, b=30))
+            # Tinggi ditambah menjadi 260
+            fig_gauge.update_layout(height=260, margin=dict(l=30, r=30, t=50, b=20))
             st.plotly_chart(fig_gauge, use_container_width=True)
 
     st.markdown("---")
