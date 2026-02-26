@@ -12,6 +12,13 @@ st.set_page_config(page_title="FOOM S&OP Command Center", layout="wide", page_ic
 # KOSMETIK PREMIUM UI/UX
 st.markdown("""
     <style>
+    /* Memastikan chart tidak terpotong */
+    .js-plotly-plot {
+        overflow: visible !important;
+    }
+    .plotly {
+        overflow: visible !important;
+    }
     /* Mengubah background utama menjadi abu-abu sangat muda agar card putih lebih menonjol */
     .stApp {
         background-color: #f8fafc;
