@@ -326,6 +326,26 @@ with tab1:
         display_order['Total_Cost'] = display_order['Total_Cost'].apply(lambda x: f"Rp {x:,.0f}" if x > 0 else "Rp 0")
         
         st.dataframe(display_order, use_container_width=True, hide_index=True)
+        
+        # KODE INI UNTUK MENGHITUNG LIMIT ---
+        # Metrik Summary Limit (Variabel ini dibutuhkan untuk Part 6 Live Scenario)
+        total_cost_miliar = df_a['Total Order Value'].sum() / 1_000_000_000
+        total_wh_impact = df_a['Warehouse Space Impact (M1)'].sum()
+        
+        col_rec1, col_rec2 = st.columns(2)
+        with col_rec1:
+            st.metric("💰 Cumulative Cash Out", f"Rp {total_cost_miliar:.2f} Miliar", delta=f"Limit: 4.0 Miliar", delta_color="normal" if total_cost_miliar <= 4.0 else "inverse")
+        with col_rec2:
+            st.metric("🏭 Cumulative WH Impact (Air Only)", f"{total_wh_impact:,.0f} units", delta=f"Sisa Gudang: 4,000", delta_color="normal" if total_wh_impact <= 4000 else "inverse")
+            
+        if total_cost_miliar > 4.0 or total_wh_impact > 4000:
+            st.error("🚨 **OVER CONSTRAINT!** Cek GSheet kolom Priority Rank. Tunda item non-prioritas!")
+        else:
+            st.success("✅ **APPROVED:** Eksekusi Order berada di bawah limit Kas dan Gudang.")
+        # --------------------------------------------------
+
+    # ===== PART 6: LIVE DEFENSE SCENARIO SIMULATION =====
+        
 
     # ===== PART 6: LIVE DEFENSE SCENARIO SIMULATION =====
     st.markdown("---")
