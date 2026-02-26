@@ -83,21 +83,65 @@ with tab1:
     st.markdown("### 📐 1. Forecast Methodology & Results")
     
     with st.expander("📊 **Klik untuk melihat logika lengkap forecast**", expanded=False):
+        # HEADER METODE
+        st.markdown("### 🧮 Metode Forecast yang Digunakan")
+        
         col_logic1, col_logic2 = st.columns(2)
+        
         with col_logic1:
             st.markdown("""
-            **Metode Forecast (Backend GSheet):**
-            * **Linear Trend:** Untuk produk *growth* eksponensial (Device C). Membaca tren kenaikan 3 bulan terakhir.
-            * **Seasonal Method:** Untuk produk musiman (Device B).
-            * **Moving Average (60-30-10):** Untuk produk stabil (Device A).
+            **Rumus Excel di GSheet:**
+            
+            **1. Klasifikasi Model (Kolom T):**
+            ```text
+            =IF(RSQ(F2:Q2, {1..12}) > 0.8, "Linear Trend",
+               IF(MAX(F2:Q2)/MEDIAN(F2:Q2) > 1.5, "Seasonal Method",
+               "Moving Average"))
+            ```
+            
+            **2. M1 - Weighted Moving Average (60-30-10):**
+            ```text
+            =ROUNDUP((Q2*0.6) + (P2*0.3) + (O2*0.1), 0)
+            ```
+            * Desember (60%) + November (30%) + Oktober (10%)
+            
+            **3. M2-M6 - Mirror Growth:**
+            ```text
+            M2 = U2 × (G2/F2)  # Growth Feb/Jan
+            M3 = V2 × (H2/G2)  # Growth Mar/Feb
+            M4 = W2 × (I2/H2)  # Growth Apr/Mar
+            M5 = X2 × (J2/I2)  # Growth May/Apr
+            M6 = Y2 × (K2/J2)  # Growth Jun/May
+            ```
             """)
+            
         with col_logic2:
             st.markdown("""
-            **Forward-Looking Inventory Policy:**
-            * Safety Stock: 15 Hari (*Buffer*)
-            * Lead Time: 45 Hari (Kapal Laut)
-            * ROP (Reorder Point): Cover 60 Hari
+            **Alasan Pemilihan Metode:**
+            
+            * **Moving Average:** Untuk data stabil tanpa trend (Device A)
+            * **Seasonal Detection:** Untuk data dengan pola berulang (Device B)
+            * **Linear Trend:** Untuk data dengan trend naik/turun konsisten (Device C)
+            
+            **Month to Month Mirror Growth dipilih karena:**
+            
+            * Menangkap pola musiman dari tahun sebelumnya
+            * Sederhana dan mudah dijelaskan ke management
+            * Cocok untuk FMCG dengan siklus tahunan
             """)
+            
+        st.markdown("---")
+        
+        # ===== INTERPRETASI DATA HISTORIS =====
+        st.markdown("### 📈 Interpretasi Data Historis per SKU")
+        
+        st.markdown("""
+        | Item | Pola Data | Metode | Rationale | Visual Pattern |
+        |---|---|---|---|---|
+        | **Device A** | Stabil (4.700 - 5.400 unit) | **Moving Average** | Tidak ada trend signifikan, pola flat sepanjang tahun | 📊 ▬▬ |
+        | **Device B** | **Spike di Apr-Mei** (6.200 / 5.800)<br>Normal: 2.800 - 3.300 | **Seasonal Method** | 🔴 **Pattern: Lonjakan saat Lebaran**<br>• April-Mei 2024: +100% dari normal<br>• Data dinormalisasi untuk forecast | 📈 📊 📈 |
+        | **Device C** | **Naik Konsisten** (900 → 3.100) | **Linear Trend** | • R² = 0.92 (korelasi kuat)<br>• Growth 200 unit/bulan<br>• Produk dalam fase growth | 📈 ↗️ ↗️ |
+        """, unsafe_allow_html=True)
             
     # Tampilkan Tabel Forecast
     forecast_cols = ['Item', 'Forecast Model', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6']
@@ -105,37 +149,17 @@ with tab1:
         df_forecast = df_a[forecast_cols].copy()
         df_forecast['Total 6M'] = df_forecast[['M1', 'M2', 'M3', 'M4', 'M5', 'M6']].sum(axis=1)
         
-        # Format angka
         for col in ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'Total 6M']:
             df_forecast[col] = df_forecast[col].apply(lambda x: f"{x:,.0f}")
         st.dataframe(df_forecast, use_container_width=True, hide_index=True)
 
-    # ===== PART 3: 3 SCENARIOS COMPARISON =====
-    st.markdown("### 🔄 2. Three Scenarios Comparison (Base vs Aggressive vs Downside)")
-    
-    df_scenarios = df_a[['Item', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6']].copy()
-    df_scenarios['Base_Total'] = df_scenarios[['M1', 'M2', 'M3', 'M4', 'M5', 'M6']].sum(axis=1)
-    df_scenarios['Base_Avg'] = (df_scenarios['Base_Total'] / 6).round(0)
-    df_scenarios['Agg_Total'] = (df_scenarios['Base_Total'] * 1.2).round(0)
-    df_scenarios['Agg_Avg'] = (df_scenarios['Agg_Total'] / 6).round(0)
-    df_scenarios['Down_Total'] = (df_scenarios['Base_Total'] * 0.8).round(0)
-    df_scenarios['Down_Avg'] = (df_scenarios['Down_Total'] / 6).round(0)
-    
-    comparison_table = df_scenarios[['Item', 'Base_Avg', 'Base_Total', 'Agg_Avg', 'Agg_Total', 'Down_Avg', 'Down_Total']].copy()
-    for col in comparison_table.columns:
-        if col != 'Item':
-            comparison_table[col] = comparison_table[col].apply(lambda x: f"{x:,.0f}")
-            
-    st.dataframe(comparison_table, use_container_width=True, hide_index=True)
-    
+
     # ===== VISUALISASI FULL TIMELINE (HISTORICAL + FORECAST) =====
     st.markdown("#### 📈 Full Timeline: Historical & Forecast Scenarios")
     st.info("💡 **Gunakan filter di bawah** untuk mensimulasikan proyeksi demand dibandingkan dengan data historis.")
     
     # FILTER DI ATAS CHART
     col_filter1, col_filter2 = st.columns(2)
-    
-    # Tambahkan opsi Aggregate & Perbandingan di urutan atas
     sku_options = ["Total Aggregate (Semua Device)", "Bandingkan Semua Device"] + df_a['Item'].tolist()
     
     with col_filter1:
@@ -148,9 +172,7 @@ with tab1:
     fcst_months = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6']
     all_months_ordered = hist_months + fcst_months
 
-    # --- LOGIKA CABANG: PERBANDINGAN vs SINGLE/TOTAL ---
     if selected_sku == "Bandingkan Semua Device":
-        # 1. MODE PERBANDINGAN ANTAR DEVICE
         if scenario_filter == "Semua Skenario":
             st.warning("⚠️ Menampilkan 'Semua Skenario' untuk 3 Device sekaligus akan membuat grafik terlalu penuh. Tampilan otomatis dikunci ke 'Base Scenario'.")
             active_scenario = "Base Scenario"
@@ -163,32 +185,19 @@ with tab1:
             hist_vals = [pd.to_numeric(row[m]) for m in hist_months]
             base_vals = [pd.to_numeric(row[m]) for m in fcst_months]
             
-            # Hitung berdasarkan skenario aktif
-            if active_scenario == "Aggressive (+20%)":
-                fcst_vals = [v * 1.2 for v in base_vals]
-            elif active_scenario == "Downside (-20%)":
-                fcst_vals = [v * 0.8 for v in base_vals]
-            else:
-                fcst_vals = base_vals
+            if active_scenario == "Aggressive (+20%)": fcst_vals = [v * 1.2 for v in base_vals]
+            elif active_scenario == "Downside (-20%)": fcst_vals = [v * 0.8 for v in base_vals]
+            else: fcst_vals = base_vals
                 
             dec_val = hist_vals[-1]
-            
-            # Buat DataFrame per Device (Hist & Fcst)
             df_h = pd.DataFrame({'Bulan': hist_months, 'Demand': hist_vals, 'Kategori': item_name, 'Periode': 'Historical'})
             df_f = pd.DataFrame({'Bulan': ['Dec'] + fcst_months, 'Demand': [dec_val] + fcst_vals, 'Kategori': item_name, 'Periode': 'Forecast'})
-            
             plot_data.extend([df_h, df_f])
             
         df_plot_final = pd.concat(plot_data, ignore_index=True)
-        
-        # Render Grafik Perbandingan
-        fig_line = px.line(
-            df_plot_final, x='Bulan', y='Demand', color='Kategori', line_dash='Periode',
-            title=f"Perbandingan Pergerakan Device ({active_scenario})", markers=True
-        )
+        fig_line = px.line(df_plot_final, x='Bulan', y='Demand', color='Kategori', line_dash='Periode', title=f"Perbandingan Pergerakan Device ({active_scenario})", markers=True)
 
     else:
-        # 2. MODE SINGLE DEVICE / TOTAL AGGREGATE (Kode yang sebelumnya)
         if selected_sku == "Total Aggregate (Semua Device)":
             hist_values = df_a[hist_months].apply(pd.to_numeric).sum().tolist()
             base_values = df_a[fcst_months].apply(pd.to_numeric).sum().tolist()
@@ -209,87 +218,114 @@ with tab1:
         df_down = pd.DataFrame({'Bulan': ['Dec'] + fcst_months, 'Demand': [dec_value] + down_values, 'Tipe': 'Downside (-20%)'})
         
         plot_data_single = [df_hist]
-        if scenario_filter == "Semua Skenario":
-            plot_data_single.extend([df_base, df_agg, df_down])
-        elif scenario_filter == "Base Scenario":
-            plot_data_single.append(df_base)
-        elif scenario_filter == "Aggressive (+20%)":
-            plot_data_single.append(df_agg)
-        elif scenario_filter == "Downside (-20%)":
-            plot_data_single.append(df_down)
+        if scenario_filter == "Semua Skenario": plot_data_single.extend([df_base, df_agg, df_down])
+        elif scenario_filter == "Base Scenario": plot_data_single.append(df_base)
+        elif scenario_filter == "Aggressive (+20%)": plot_data_single.append(df_agg)
+        elif scenario_filter == "Downside (-20%)": plot_data_single.append(df_down)
             
         df_plot_final = pd.concat(plot_data_single, ignore_index=True)
+        fig_line = px.line(df_plot_final, x='Bulan', y='Demand', color='Tipe', title=chart_title, markers=True, color_discrete_map={'Historical (Aktual)': '#64748b', 'Base Forecast': '#3b82f6', 'Aggressive (+20%)': '#10b981', 'Downside (-20%)': '#ef4444'})
         
-        fig_line = px.line(
-            df_plot_final, x='Bulan', y='Demand', color='Tipe', title=chart_title, markers=True,
-            color_discrete_map={'Historical (Aktual)': '#64748b', 'Base Forecast': '#3b82f6', 'Aggressive (+20%)': '#10b981', 'Downside (-20%)': '#ef4444'}
-        )
-        
-    # --- PENGATURAN UMUM GRAFIK (Berlaku untuk kedua mode) ---
     fig_line.update_xaxes(categoryorder='array', categoryarray=all_months_ordered)
     fig_line.add_vline(x='Dec', line_width=2, line_dash="dot", line_color="gray")
-    fig_line.add_annotation(
-        x='Dec', y=1.05, yref='paper', text="Mulai Forecast ➡️", 
-        showarrow=False, font=dict(color="gray", size=12), xanchor="right"
-    )
+    fig_line.add_annotation(x='Dec', y=1.05, yref='paper', text="Mulai Forecast ➡️", showarrow=False, font=dict(color="gray", size=12), xanchor="right")
     fig_line.update_layout(height=450, hovermode='x unified', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     
     st.plotly_chart(fig_line, use_container_width=True)
 
-    # ===== PART 4: STOCK COVER & INVENTORY EXPOSURE =====
-    st.markdown("### 📦 3. Stock Health & Replenishment Trigger")
+
+    # ===== PART 4 (PERBAIKAN VISUAL): STOCK COVER & INVENTORY EXPOSURE =====
+    st.markdown("### 📦 3. Stock Cover & Inventory Exposure")
     
-    health_cols = ['Item', 'Current Stock', 'Stock Month Cover', 'DOS (Days)', 'DOS Status', 'Reorder Point (ROP)', 'Stock Status vs ROP']
+    health_cols = ['Item', 'Current Stock', 'M1', 'M2', 'M3', 'Stock Month Cover', 'DOS (Days)', 'DOS Status', 'Stock Value']
     if all(c in df_a.columns for c in health_cols):
         df_health = df_a[health_cols].copy()
         
-        # Format Angka
-        for col in ['Current Stock', 'Reorder Point (ROP)', 'DOS (Days)']:
-            df_health[col] = df_health[col].apply(lambda x: f"{x:,.0f}")
-            
-        st.dataframe(df_health, use_container_width=True, hide_index=True)
+        # Hitung Avg_Forecast dinamis untuk ditampilkan di tabel
+        df_health['Avg_Forecast'] = ((df_health['M1'] + df_health['M2'] + df_health['M3']) / 3).round(0)
+        
+        # Susun dan Rename kolom agar persis dengan gambar
+        display_health = df_health[['Item', 'Current Stock', 'Avg_Forecast', 'Stock Month Cover', 'DOS (Days)', 'DOS Status', 'Stock Value']].copy()
+        display_health.rename(columns={
+            'Stock Month Cover': 'Stock Cover (bulan)',
+            'DOS (Days)': 'Stock Cover (hari)',
+            'DOS Status': 'Status',
+            'Stock Value': 'Inventory Value'
+        }, inplace=True)
+        
+        # Styling ikon status
+        display_health['Status'] = display_health['Status'].apply(
+            lambda x: f"🔴 {x}" if "CRITICAL" in str(x).upper() else (f"🟡 {x}" if "WASPADA" in str(x).upper() else (f"🔵 {x}" if "OVERSTOCK" in str(x).upper() else f"🟢 {x}"))
+        )
+        
+        # Format angka
+        for col in ['Current Stock', 'Avg_Forecast', 'Stock Cover (hari)']:
+            display_health[col] = display_health[col].apply(lambda x: f"{x:,.0f}")
+        display_health['Stock Cover (bulan)'] = display_health['Stock Cover (bulan)'].apply(lambda x: f"{x:,.1f}")
+        display_health['Inventory Value'] = display_health['Inventory Value'].apply(lambda x: f"Rp {x:,.0f}")
+        
+        st.dataframe(display_health, use_container_width=True, hide_index=True)
+        
+        # Metrik Summary
+        total_inv = df_a['Stock Value'].sum()
+        total_stock = df_a['Current Stock'].sum()
+        kritis_count = len(df_a[df_a['DOS Status'].str.contains('CRITICAL|KRITIS', case=False, na=False)])
+        aman_count = len(df_a[df_a['DOS Status'].str.contains('SAFE|AMAN|WASPADA', case=False, na=False)]) # Asumsi waspada masih aman
+        
+        col_met1, col_met2, col_met3, col_met4 = st.columns(4)
+        with col_met1:
+            st.metric("💰 Total Inventory Value", f"Rp {total_inv:,.0f}")
+        with col_met2:
+            st.metric("📦 Total Stock (units)", f"{total_stock:,.0f}")
+        with col_met3:
+            st.metric("⚠️ SKU Kritis", kritis_count)
+        with col_met4:
+            st.metric("✅ SKU Aman", aman_count)
 
-    # ===== PART 5: REKOMENDASI IMPORT PLAN (MIRROR GSHEET) =====
-    st.markdown("### 🚢 4. Import Plan & Cost Strategy (Landed Cost)")
+
+    # ===== PART 5 (PERBAIKAN VISUAL): IMPORT PLAN & COST SIMULATION =====
+    st.markdown("### 🚢 4. Import Plan & Cost Simulation")
     
-    with st.expander("⚙️ Logistik & Warehouse Constraints (GSheet Sync)", expanded=True):
+    with st.expander("⚙️ Logistik & Warehouse Constraints Settings", expanded=True):
         col_log1, col_log2, col_log3 = st.columns(3)
         with col_log1:
-            st.info("🚢 Sea Freight Cost: **10% dari HPP**")
+            sea_cost_pct = st.number_input("Sea Freight Cost (%)", value=10, step=1)
         with col_log2:
-            st.warning("✈️ Air Freight Cost: **40% dari HPP**")
+            air_cost_mult = st.number_input("Air Freight Multiplier (x Cost)", value=4.00, step=0.50, format="%.2f")
         with col_log3:
             wh_utilization = st.progress(85, text="WH Utilization: 85% (51,000 / 60,000 units)")
-            st.caption("Sisa kapasitas aman M1: **4,000 units**")
+            st.caption("Sisa kapasitas aman untuk batch ini: **4,000 units**")
 
-    # Tarik data eksekusi murni dari GSheet
-    order_cols = ['Priority Rank', 'Item', 'Current Stock', 'Suggested Order Qty', 'Route (Sea/Air)', 'Air Urgent Qty', 'Sea Qty', 'Total Order Value', 'Warehouse Space Impact (M1)']
+    # Tarik data eksekusi
+    order_cols = ['Item', 'Current Stock', 'DOS (Days)', 'M1', 'Suggested Order Qty', 'Air Urgent Qty', 'Sea Qty', 'Route (Sea/Air)', 'Total Order Value']
     
     if all(c in df_a.columns for c in order_cols):
         display_order = df_a[order_cols].copy()
-        display_order['Cost (Billion IDR)'] = (display_order['Total Order Value'] / 1_000_000_000).round(2)
+        
+        # Rename persis seperti gambar
+        display_order.rename(columns={
+            'DOS (Days)': 'DOS',
+            'Suggested Order Qty': 'Order_Qty',
+            'Air Urgent Qty': 'Air_Qty',
+            'Sea Qty': 'Sea_Qty',
+            'Route (Sea/Air)': 'Route',
+            'Total Order Value': 'Total_Cost'
+        }, inplace=True)
+        
+        # Logika modifikasi teks 'Route' agar berikon dan detail seperti di gambar
+        display_order['Route'] = display_order.apply(
+            lambda row: f"✈️ SPLIT: {row['Air_Qty']:,.0f} Air + {row['Sea_Qty']:,.0f} Sea" if "SPLIT" in str(row['Route']).upper() 
+            else ("🚢 SEA" if "SEA" in str(row['Route']).upper() 
+            else ("✈️ AIR" if "AIR" in str(row['Route']).upper() 
+            else "⏸️ TUNDA")), axis=1
+        )
         
         # Format angka string
-        for col in ['Current Stock', 'Suggested Order Qty', 'Air Urgent Qty', 'Sea Qty', 'Warehouse Space Impact (M1)']:
+        for col in ['Current Stock', 'DOS', 'M1', 'Order_Qty', 'Air_Qty', 'Sea_Qty']:
             display_order[col] = display_order[col].apply(lambda x: f"{x:,.0f}")
-        display_order['Total Order Value'] = display_order['Total Order Value'].apply(lambda x: f"Rp {x:,.0f}")
+        display_order['Total_Cost'] = display_order['Total_Cost'].apply(lambda x: f"Rp {x:,.0f}" if x > 0 else "Rp 0")
         
-        st.dataframe(display_order.drop(columns=['Total Order Value']), use_container_width=True, hide_index=True)
-        
-        # Summary Status
-        total_cost_miliar = df_a['Total Order Value'].sum() / 1_000_000_000
-        total_wh_impact = df_a['Warehouse Space Impact (M1)'].sum()
-        
-        col_rec1, col_rec2 = st.columns(2)
-        with col_rec1:
-            st.metric("💰 Cumulative Cash Out", f"Rp {total_cost_miliar:.2f} Miliar", delta=f"Limit: 4.0 Miliar", delta_color="normal" if total_cost_miliar <= 4.0 else "inverse")
-        with col_rec2:
-            st.metric("🏭 Cumulative WH Impact (Air Only)", f"{total_wh_impact:,.0f} units", delta=f"Sisa Gudang: 4,000", delta_color="normal" if total_wh_impact <= 4000 else "inverse")
-            
-        if total_cost_miliar > 4.0 or total_wh_impact > 4000:
-            st.error("🚨 **OVER CONSTRAINT!** Cek GSheet kolom Priority Rank. Tunda item non-prioritas!")
-        else:
-            st.success("✅ **APPROVED:** Eksekusi Order berada di bawah limit Kas dan Gudang.")
+        st.dataframe(display_order, use_container_width=True, hide_index=True)
 
     # ===== PART 6: LIVE DEFENSE SCENARIO SIMULATION =====
     st.markdown("---")
