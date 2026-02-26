@@ -528,6 +528,41 @@ with tab2:
         * **Auto-Clearance Mandate (T-2 Months):** Jika H-60 hari produk lama masih memiliki stok >2 bulan, tim *Marketing* diizinkan mengeksekusi *Bundling Promo* otomatis tanpa eskalasi berlapis.
         """)
 
+        # --- KODE TAMBAHAN: CONTINGENCY PLAN ---
+        st.markdown("---")
+        st.markdown("#### 🛡️ Contingency Plan (What-If Scenarios)")
+        st.info("Antisipasi strategi jika Manajemen memberikan skenario krisis dadakan saat presentasi / operasional.")
+        
+        col_cp1, col_cp2, col_cp3 = st.columns(3)
+        
+        with col_cp1:
+            st.markdown("""
+            <div class='card' style='border-left: 5px solid #f59e0b;'>
+                <h4 style='color:#b45309;'>📉 Krisis 1: Margin Squeeze</h4>
+                <p><b>Skenario:</b> CFO menolak diskon 30%, hanya mengizinkan maksimal diskon 10-15%.</p>
+                <p><b>Plan B (Gunakan Slider):</b> Tunjukkan secara <i>live</i> bahwa diskon pelit (10%) akan melambatkan serapan. Jika hanya laku 50%, Cash Unlock cuma Rp 891 Juta. Lempar keputusan ke Manajemen: <i>"Pilih selamatkan Margin 38% atau capai target Cash 5 Miliar?"</i></p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        with col_cp2:
+            st.markdown("""
+            <div class='card' style='border-left: 5px solid #ef4444;'>
+                <h4 style='color:#b91c1c;'>🚨 Krisis 2: B2B Buyer Batal</h4>
+                <p><b>Skenario:</b> Kesepakatan Export/Borongan senilai Rp 2.5 Miliar batal secara tiba-tiba.</p>
+                <p><b>Plan B:</b> Alihkan beban target ke kategori <i>'Slow Moving'</i>. Ubah strategi E-Commerce dari sekadar Flash Sale biasa menjadi <b>Mega Clearance (Diskon 40-50%)</b> untuk langsung melikuidasi Rp 8.75 Miliar aset guna menutup lubang 2.5 Miliar.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        with col_cp3:
+            st.markdown("""
+            <div class='card' style='border-left: 5px solid #3b82f6;'>
+                <h4 style='color:#1d4ed8;'>⏱️ Krisis 3: Cash 30-Day Sprint</h4>
+                <p><b>Skenario:</b> Perusahaan tidak bisa menunggu 90 hari, butuh suntikan tunai Rp 3 Miliar di 30 hari pertama.</p>
+                <p><b>Plan B:</b> Akselerasi <b>B2B Wholesale</b> di minggu pertama. Penjualan ritel (Bundling/Flash Sale) butuh waktu <i>ramp-up</i> untuk laku harian. B2B adalah transaksi <i>'Take-All'</i> (1x invoice langsung cair besar).</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+
 # ==========================================
 # TAB 3: S&OP RESTRUCTURE DESIGN (100% TERKONEKSI GSHEET)
 # ==========================================
