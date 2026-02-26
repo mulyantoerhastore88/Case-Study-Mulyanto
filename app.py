@@ -748,3 +748,11 @@ with tab3:
             <p><i>"{df_strat.iloc[3]['Explanation & Response to Management']}"</i></p>
         </div>
         """, unsafe_allow_html=True)
+
+
+st.markdown("---")
+st.markdown("""
+<div style='text-align: center; color: #94a3b8; font-size: 0.8rem; padding: 20px;'>
+    FOOM LAB GLOBAL S&OP Command Center | Case Study by Mulyanto | Data real-time from Google Sheets
+</div>
+""", unsafe_allow_html=True)
