@@ -380,96 +380,134 @@ with tab1:
 
 
 # ==========================================
-# TAB 2: DEAD STOCK & CASH UNLOCK (TETAP SAMA)
+# TAB 2: DEAD STOCK & CASH UNLOCK (TERKONEKSI GSHEET)
 # ==========================================
 with tab2:
     st.markdown("### 💰 The 5 Billion Cash Unlock Masterplan")
     st.warning("🎯 **Target: Unlock minimum IDR 5 Miliar in 90 days**")
     
-    st.markdown("#### 🚀 The 90-Day Liquidation Portfolio (Road to 5 Miliar)")
-    
-    masterplan_data = pd.DataFrame({
-        'Category': ['Device Z (Dead Stock)', 'Other Dead Stock (18% of 25 Miliar - Z)', 'Slow Moving (35% of 25 Miliar)'],
-        'Inventory Value': ['Rp 1.10 Miliar', 'Rp 3.40 Miliar', 'Rp 8.75 Miliar'],
-        'Proposed Strategy': ['Aggressive Bundling & Clearance (-30%)', 'B2B Wholesale / Export "Take-All"', 'E-Commerce Flash Sale (Double Day)'],
-        'Target Cash Unlock (Miliar)': [1.1, 2.5, 1.4] 
-    })
-    
-    total_unlock_target = sum(masterplan_data['Target Cash Unlock (Miliar)'])
-    
-    col_mp1, col_mp2 = st.columns([2, 1])
-    with col_mp1:
-        st.dataframe(masterplan_data, use_container_width=True, hide_index=True)
-    with col_mp2:
-        fig_gauge_5b = go.Figure(go.Indicator(
-            mode="gauge+number", value=total_unlock_target, number={'valueformat': '.1f', 'prefix': 'Rp ', 'suffix': ' Miliar'},
-            title={'text': "Total Cash Unlock"},
-            gauge={'axis': {'range': [None, 6]}, 'bar': {'color': "#10b981"}, 'steps': [{'range': [0, 5], 'color': "#fee2e2"}, {'range': [5, 6], 'color': "#dcfce7"}], 'threshold': {'line': {'color': "red", 'width': 4}, 'thickness': 0.75, 'value': 5}}
-        ))
-        fig_gauge_5b.update_layout(height=200, margin=dict(l=20, r=20, t=30, b=20))
-        st.plotly_chart(fig_gauge_5b, use_container_width=True)
-        st.success("✅ **Target IDR 5 Miliar Terpenuhi!**")
+    if not data_b:
+        st.error("⚠️ Data Part B gagal dimuat. Pastikan nama worksheet di GSheet adalah 'Part_B_DEAD_STOCK_&_CASH_UNLOCK'.")
+    else:
+        # --- PARSING DATA DARI GSHEET PART B ---
+        # 1. Parsing Portfolio (Baris 1-5 di excel -> index 0-4 di Python)
+        df_port = pd.DataFrame(data_b[1:5], columns=data_b[0])
+        # 2. Parsing Detail Device Z (Baris 7-8 di excel -> index 6-7 di Python)
+        df_z = pd.DataFrame([data_b[7]], columns=data_b[6])
+        # 3. Parsing Scenario (Baris 11-17 di excel -> index 10-16 di Python)
+        df_scen = pd.DataFrame(data_b[11:17], columns=data_b[10])
 
-    st.markdown("---")
-    st.markdown("### 📱 Device Z - Detailed Analysis")
-    col_z_detail1, col_z_detail2, col_z_detail3 = st.columns(3)
-    
-    stock_z = 12000
-    inv_value_z = 1.1e9 
-    unit_cost_z = inv_value_z / stock_z 
-    monthly_sales_z = 500
-    
-    with col_z_detail1:
-        st.markdown("""<div style='background-color:#f8fafc; padding:15px; border-radius:8px; border:1px solid #cbd5e1;'><h4 style='margin-top:0; color:#334155;'>📊 Stock & Value</h4><table style='width:100%'><tr><td>Current Stock</td><td><b>{:,} units</b></td></tr><tr><td>Inventory Value</td><td><b>Rp {:.2f} Miliar</b></td></tr><tr><td>Unit Cost (HPP)</td><td><b>Rp {:,.0f}</b></td></tr></table></div>""".format(stock_z, inv_value_z/1e9, unit_cost_z), unsafe_allow_html=True)
-    
-    with col_z_detail2:
-        st.markdown("""<div style='background-color:#f8fafc; padding:15px; border-radius:8px; border:1px solid #cbd5e1;'><h4 style='margin-top:0; color:#334155;'>💰 Sales & Margin</h4>""", unsafe_allow_html=True)
-        estimated_selling_price = st.slider("Estimasi Harga Jual Normal (Rp/unit)", min_value=int(unit_cost_z * 1.2), max_value=int(unit_cost_z * 2.5), value=int(unit_cost_z * 1.8), step=5000, format="Rp %d", key="price_z")
-        normal_margin = (estimated_selling_price - unit_cost_z) / estimated_selling_price * 100
-        monthly_revenue = monthly_sales_z * estimated_selling_price
-        annual_revenue_potential = monthly_revenue * 12
-        st.markdown("""<table style='width:100%'><tr><td>Harga Jual Estimasi</td><td><b>Rp {:,.0f}</b></td></tr><tr><td>Margin Normal</td><td><b style='color:{};'>{:.1f}%</b></td></tr><tr><td>Monthly Revenue</td><td><b>Rp {:,.0f} Juta</b></td></tr><tr><td>Annual Potential</td><td><b>Rp {:,.0f} Juta</b></td></tr></table></div>""".format(estimated_selling_price, '#22c55e' if normal_margin > 30 else '#eab308' if normal_margin > 15 else '#ef4444', normal_margin, monthly_revenue/1e6, annual_revenue_potential/1e6), unsafe_allow_html=True)
-    
-    with col_z_detail3:
-        months_to_deplete = stock_z / monthly_sales_z
-        stock_at_launch = stock_z - (monthly_sales_z * 3) 
-        value_at_risk = stock_at_launch * unit_cost_z
-        st.markdown("""<div style='background-color:#f8fafc; padding:15px; border-radius:8px; border:1px solid #cbd5e1;'><h4 style='margin-top:0; color:#334155;'>⏱️ Depletion & Risk</h4><table style='width:100%'><tr><td>Natural Depletion</td><td><b style='color:#ef4444;'>{:.0f} bulan</b></td></tr><tr><td>Replacement Launch</td><td><b>3 bulan</b></td></tr><tr><td>Stock at Launch</td><td><b>{:,} units</b></td></tr><tr><td>Value at Risk</td><td><b style='color:#ef4444;'>Rp {:,.0f} Juta</b></td></tr></table></div>""".format(months_to_deplete, stock_at_launch, value_at_risk/1e6), unsafe_allow_html=True)
-    
-    st.markdown("#### ⚖️ Margin vs Cash Trade-off Simulation")
-    col_trade1, col_trade2 = st.columns(2)
-    
-    with col_trade1:
-        st.markdown("**🎛️ Strategi Likuidasi Device Z**")
-        units_to_liquidate = st.slider("Jumlah unit yang dilikuidasi", min_value=1000, max_value=12000, value=12000, step=1000, key="units_z")
-        discount_rate = st.slider("Diskon yang diberikan (%)", min_value=10, max_value=70, value=30, step=5, key="discount_z")
+        # --- TAMPILAN BLOK 1: PORTFOLIO MASTERPLAN ---
+        st.markdown("#### 🚀 The 90-Day Liquidation Portfolio (Road to 5 Miliar)")
         
-        selling_price_after_discount = estimated_selling_price * (1 - discount_rate/100)
-        revenue = units_to_liquidate * selling_price_after_discount
-        cost = units_to_liquidate * unit_cost_z
-        gross_profit = revenue - cost
-        margin_after_discount = (gross_profit / revenue * 100) if revenue > 0 else 0
-        normal_profit_per_unit = estimated_selling_price - unit_cost_z
-        normal_margin_total = units_to_liquidate * normal_profit_per_unit
-        margin_erosion = normal_margin_total - gross_profit
+        # Ambil nilai baris TOTAL untuk Gauge Chart
+        total_cash_target_str = str(df_port.iloc[-1]['Target Cash Unlock in 90 Days']).replace('Rp', '').replace(',', '').strip()
+        total_unlock_target = float(total_cash_target_str) / 1_000_000_000 # Convert ke Miliar
         
-    with col_trade2:
-        st.markdown("**📊 Hasil Simulasi**")
-        results_trade = pd.DataFrame({
-            'Metric': ['Revenue (Cash Unlock)', 'HPP', 'Gross Profit', 'Margin %', 'Margin Erosion vs Normal'],
-            'Value': [f"Rp {revenue/1e6:,.0f} Juta", f"Rp {cost/1e6:,.0f} Juta", f"Rp {gross_profit/1e6:,.0f} Juta", f"{margin_after_discount:.1f}%", f"Rp {margin_erosion/1e6:,.0f} Juta"]
-        })
-        st.dataframe(results_trade, use_container_width=True, hide_index=True)
-        if margin_after_discount > 20: st.success(f"✅ Margin sehat ({margin_after_discount:.1f}%)")
-        elif margin_after_discount > 10: st.warning(f"⚠️ Margin tipis ({margin_after_discount:.1f}%)")
-        else: st.error(f"🔴 Margin sangat rendah ({margin_after_discount:.1f}%)")
+        # Format tabel portfolio agar cantik
+        display_port = df_port.copy()
+        for col in ['Inventory Value (IDR)', 'Target Cash Unlock in 90 Days']:
+            display_port[col] = pd.to_numeric(display_port[col].astype(str).str.replace(r'[Rp, ]', '', regex=True), errors='coerce')
+            display_port[col] = display_port[col].apply(lambda x: f"Rp {x:,.0f}" if pd.notnull(x) else "")
+            
+        col_mp1, col_mp2 = st.columns([2, 1])
+        with col_mp1:
+            st.dataframe(display_port, use_container_width=True, hide_index=True)
+        with col_mp2:
+            fig_gauge_5b = go.Figure(go.Indicator(
+                mode="gauge+number", value=total_unlock_target, number={'valueformat': '.1f', 'prefix': 'Rp ', 'suffix': ' Miliar'},
+                title={'text': "Total Cash Unlock"},
+                gauge={'axis': {'range': [None, 6]}, 'bar': {'color': "#10b981"}, 'steps': [{'range': [0, 5], 'color': "#fee2e2"}, {'range': [5, 6], 'color': "#dcfce7"}], 'threshold': {'line': {'color': "red", 'width': 4}, 'thickness': 0.75, 'value': 5}}
+            ))
+            fig_gauge_5b.update_layout(height=200, margin=dict(l=20, r=20, t=30, b=20))
+            st.plotly_chart(fig_gauge_5b, use_container_width=True)
 
-    st.markdown("#### 🛡️ Proposed Portfolio Clean-up Governance")
-    st.info("SOP untuk mencegah kejadian Overstock Device Z terulang di masa depan.")
-    st.markdown("""
-    * **Phase-Out Trigger (T-4 Months):** Segala bentuk aktivitas *Import / Procurement* untuk produk lama wajib dihentikan **4 bulan** sebelum peluncuran generasi pengganti.
-    * **Auto-Clearance Mandate (T-2 Months):** Jika H-60 hari produk lama masih memiliki stok >2 bulan, tim *Marketing* diizinkan mengeksekusi *Bundling Promo* otomatis.
-    """)
+        st.markdown("---")
+        
+        # --- TAMPILAN BLOK 2: DEVICE Z DETAIL ---
+        st.markdown("### 📱 Device Z - Detailed Analysis")
+        col_z_detail1, col_z_detail2, col_z_detail3 = st.columns(3)
+        
+        z_data = df_z.iloc[0]
+        # Ekstraksi angka murni
+        def safe_float(val):
+            return float(str(val).replace('Rp', '').replace(',', '').replace('%', '').strip() or 0)
+            
+        stock_z = safe_float(z_data['Current Stock'])
+        inv_value_z = safe_float(z_data['Inventory Value (IDR)'])
+        unit_cost_z = safe_float(z_data['Unit Cost (HPP)'])
+        est_sell_price = safe_float(z_data['Est. Selling Price'])
+        
+        # Deteksi format margin (apakah desimal 0.44 atau string 44%)
+        raw_margin = str(z_data['Normal Margin %']).replace('%', '').strip()
+        normal_margin = float(raw_margin) * 100 if float(raw_margin) < 1 else float(raw_margin)
+        
+        monthly_sales_z = safe_float(z_data['Avg Monthly Sales'])
+        months_deplete = safe_float(z_data['Months to Deplete'])
+        value_at_risk = safe_float(z_data['Value at Risk'])
+        
+        with col_z_detail1:
+            st.markdown("""<div style='background-color:#f8fafc; padding:15px; border-radius:8px; border:1px solid #cbd5e1;'><h4 style='margin-top:0; color:#334155;'>📊 Stock & Value</h4><table style='width:100%'><tr><td>Current Stock</td><td><b>{:,} units</b></td></tr><tr><td>Inventory Value</td><td><b>Rp {:.2f} Miliar</b></td></tr><tr><td>Unit Cost (HPP)</td><td><b>Rp {:,.0f}</b></td></tr></table></div>""".format(stock_z, inv_value_z/1e9, unit_cost_z), unsafe_allow_html=True)
+        
+        with col_z_detail2:
+            st.markdown("""<div style='background-color:#f8fafc; padding:15px; border-radius:8px; border:1px solid #cbd5e1;'><h4 style='margin-top:0; color:#334155;'>💰 Sales & Margin</h4><table style='width:100%'><tr><td>Harga Jual Estimasi</td><td><b>Rp {:,.0f}</b></td></tr><tr><td>Margin Normal</td><td><b style='color:#22c55e;'>{:.1f}%</b></td></tr><tr><td>Monthly Sales Velocity</td><td><b>{:.0f} units/mo</b></td></tr></table></div>""".format(est_sell_price, normal_margin, monthly_sales_z), unsafe_allow_html=True)
+            
+        with col_z_detail3:
+            stock_at_launch = stock_z - (monthly_sales_z * 3) 
+            st.markdown("""<div style='background-color:#f8fafc; padding:15px; border-radius:8px; border:1px solid #cbd5e1;'><h4 style='margin-top:0; color:#334155;'>⏱️ Depletion & Risk</h4><table style='width:100%'><tr><td>Natural Depletion</td><td><b style='color:#ef4444;'>{:.0f} bulan</b></td></tr><tr><td>Replacement Launch</td><td><b>3 bulan lagi</b></td></tr><tr><td>Value at Risk (Hangus)</td><td><b style='color:#ef4444;'>Rp {:,.0f} Juta</b></td></tr></table></div>""".format(months_deplete, value_at_risk/1e6), unsafe_allow_html=True)
+        
+        # --- TAMPILAN BLOK 3: SCENARIO TABLE DARI GSHEET ---
+        st.markdown("#### ⚖️ Margin vs Cash Trade-off Simulation (Pre-calculated in GSheet)")
+        st.info("💡 Tabel di bawah ini ditarik langsung dari kalkulasi mesin Google Sheets.")
+        
+        display_scen = df_scen.copy()
+        
+        # Format Kolom Persentase
+        for col in ['Discount Rate', 'Margin After Discount']:
+            display_scen[col] = display_scen[col].apply(lambda x: f"{float(str(x).replace('%','').strip()) * 100:.2f}%" if float(str(x).replace('%','').strip()) < 1 else f"{float(str(x).replace('%','').strip()):.2f}%")
+            
+        # Format Kolom Uang
+        for col in ['Units to Liquidate', 'Discounted Price', 'Revenue (Cash Unlock)', 'Gross Profit', 'Margin Erosion (IDR)']:
+            display_scen[col] = pd.to_numeric(display_scen[col].astype(str).str.replace(r'[Rp, ]', '', regex=True), errors='coerce')
+            if col == 'Units to Liquidate':
+                display_scen[col] = display_scen[col].apply(lambda x: f"{x:,.0f}" if pd.notnull(x) else "")
+            else:
+                display_scen[col] = display_scen[col].apply(lambda x: f"Rp {x:,.0f}" if pd.notnull(x) else "")
+                
+        st.dataframe(display_scen, use_container_width=True, hide_index=True)
+
+        # --- INTERACTIVE SLIDER UNTUK PRESENTASI ---
+        st.markdown("#### 🎛️ Live Presentation Slider")
+        col_trade1, col_trade2 = st.columns(2)
+        
+        with col_trade1:
+            st.markdown("**Simulasikan strategi persetujuan di sini:**")
+            units_to_liquidate = st.slider("Jumlah unit yang dilikuidasi", min_value=1000, max_value=int(stock_z), value=int(stock_z), step=1000, key="units_z")
+            discount_rate = st.slider("Diskon yang diberikan (%)", min_value=0, max_value=70, value=30, step=10, key="discount_z")
+            
+            selling_price_after_discount = est_sell_price * (1 - discount_rate/100)
+            revenue = units_to_liquidate * selling_price_after_discount
+            cost = units_to_liquidate * unit_cost_z
+            gross_profit = revenue - cost
+            margin_after_discount = (gross_profit / revenue * 100) if revenue > 0 else 0
+            
+        with col_trade2:
+            st.markdown("**📊 Hasil Kalkulasi Live**")
+            results_trade = pd.DataFrame({
+                'Metric': ['Target Cash Unlock (Rev)', 'Margin Tersisa', 'Gross Profit'],
+                'Value': [f"Rp {revenue/1e6:,.0f} Juta", f"{margin_after_discount:.1f}%", f"Rp {gross_profit/1e6:,.0f} Juta"]
+            })
+            st.dataframe(results_trade, use_container_width=True, hide_index=True)
+            if margin_after_discount >= 20: st.success(f"✅ Margin sehat ({margin_after_discount:.1f}%)")
+            elif margin_after_discount >= 0: st.warning(f"⚠️ Margin sangat tipis ({margin_after_discount:.1f}%)")
+            else: st.error(f"🔴 Jual Rugi / Negatif Margin ({margin_after_discount:.1f}%)")
+
+        st.markdown("#### 🛡️ Proposed Portfolio Clean-up Governance")
+        st.info("SOP untuk mencegah kejadian Overstock Device Z terulang di masa depan.")
+        st.markdown("""
+        * **Phase-Out Trigger (T-4 Months):** Segala bentuk aktivitas *Import / Procurement* untuk produk lama wajib dihentikan **4 bulan** sebelum peluncuran generasi pengganti.
+        * **Auto-Clearance Mandate (T-2 Months):** Jika H-60 hari produk lama masih memiliki stok >2 bulan, tim *Marketing* diizinkan mengeksekusi *Bundling Promo* otomatis tanpa eskalasi berlapis.
+        """)
 
 # ==========================================
 # TAB 3: S&OP RESTRUCTURE DESIGN (TETAP SAMA)
