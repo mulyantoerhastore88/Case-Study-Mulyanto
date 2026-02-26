@@ -135,83 +135,103 @@ with tab1:
     # FILTER DI ATAS CHART
     col_filter1, col_filter2 = st.columns(2)
     
-    # Tambahkan opsi "Semua Device" di urutan paling atas
-    sku_options = ["Semua Device"] + df_a['Item'].tolist()
+    # Tambahkan opsi Aggregate & Perbandingan di urutan atas
+    sku_options = ["Total Aggregate (Semua Device)", "Bandingkan Semua Device"] + df_a['Item'].tolist()
     
     with col_filter1:
         selected_sku = st.selectbox("1️⃣ Pilih SKU / View:", sku_options, key="sku_selector")
     with col_filter2:
         scenario_filter = st.selectbox("2️⃣ Tampilkan Skenario:", 
-                                   ["Semua Skenario", "Base Scenario", "Aggressive (+20%)", "Downside (-20%)"])
+                                   ["Base Scenario", "Aggressive (+20%)", "Downside (-20%)", "Semua Skenario"])
     
     hist_months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     fcst_months = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6']
-    
-    # LOGIKA PENGAMBILAN DATA (Single SKU vs Semua Device)
-    if selected_sku == "Semua Device":
-        # Jika "Semua Device" dipilih, jumlahkan (SUM) semua kolom
-        hist_values = df_a[hist_months].sum().tolist()
-        base_values = df_a[fcst_months].sum().tolist()
-    else:
-        # Jika 1 SKU dipilih, ambil data spesifik SKU tersebut
-        sku_data_full = df_a[df_a['Item'] == selected_sku].iloc[0]
-        hist_values = [sku_data_full[m] for m in hist_months]
-        base_values = [sku_data_full[m] for m in fcst_months]
-
-    dec_value = hist_values[-1] # Titik sambung di bulan Desember
-    
-    # Perhitungan skenario
-    agg_values = [v * 1.2 for v in base_values]
-    down_values = [v * 0.8 for v in base_values]
-    
-    # Bentuk DataFrame terpisah
-    df_hist = pd.DataFrame({'Bulan': hist_months, 'Demand': hist_values, 'Tipe': 'Historical (Aktual)'})
-    df_base = pd.DataFrame({'Bulan': ['Dec'] + fcst_months, 'Demand': [dec_value] + base_values, 'Tipe': 'Base Forecast'})
-    df_agg = pd.DataFrame({'Bulan': ['Dec'] + fcst_months, 'Demand': [dec_value] + agg_values, 'Tipe': 'Aggressive (+20%)'})
-    df_down = pd.DataFrame({'Bulan': ['Dec'] + fcst_months, 'Demand': [dec_value] + down_values, 'Tipe': 'Downside (-20%)'})
-    
-    # Logika Filter Skenario
-    plot_data = [df_hist]
-    if scenario_filter == "Semua Skenario":
-        plot_data.extend([df_base, df_agg, df_down])
-    elif scenario_filter == "Base Scenario":
-        plot_data.append(df_base)
-    elif scenario_filter == "Aggressive (+20%)":
-        plot_data.append(df_agg)
-    elif scenario_filter == "Downside (-20%)":
-        plot_data.append(df_down)
-        
-    df_plot_final = pd.concat(plot_data, ignore_index=True)
-    
-    # Render Grafik (Full Width)
     all_months_ordered = hist_months + fcst_months
-    
-    # Ganti Judul agar dinamis sesuai pilihan
-    chart_title = "Total Aggregate Demand (All Devices)" if selected_sku == "Semua Device" else f"End-to-End Demand Visibility: {selected_sku}"
-    
-    fig_line = px.line(
-        df_plot_final, 
-        x='Bulan', 
-        y='Demand', 
-        color='Tipe', 
-        title=chart_title,
-        markers=True,
-        color_discrete_map={
-            'Historical (Aktual)': '#64748b', 
-            'Base Forecast': '#3b82f6',       
-            'Aggressive (+20%)': '#10b981',   
-            'Downside (-20%)': '#ef4444'      
-        }
-    )
-    
+
+    # --- LOGIKA CABANG: PERBANDINGAN vs SINGLE/TOTAL ---
+    if selected_sku == "Bandingkan Semua Device":
+        # 1. MODE PERBANDINGAN ANTAR DEVICE
+        if scenario_filter == "Semua Skenario":
+            st.warning("⚠️ Menampilkan 'Semua Skenario' untuk 3 Device sekaligus akan membuat grafik terlalu penuh. Tampilan otomatis dikunci ke 'Base Scenario'.")
+            active_scenario = "Base Scenario"
+        else:
+            active_scenario = scenario_filter
+            
+        plot_data = []
+        for idx, row in df_a.iterrows():
+            item_name = row['Item']
+            hist_vals = [pd.to_numeric(row[m]) for m in hist_months]
+            base_vals = [pd.to_numeric(row[m]) for m in fcst_months]
+            
+            # Hitung berdasarkan skenario aktif
+            if active_scenario == "Aggressive (+20%)":
+                fcst_vals = [v * 1.2 for v in base_vals]
+            elif active_scenario == "Downside (-20%)":
+                fcst_vals = [v * 0.8 for v in base_vals]
+            else:
+                fcst_vals = base_vals
+                
+            dec_val = hist_vals[-1]
+            
+            # Buat DataFrame per Device (Hist & Fcst)
+            df_h = pd.DataFrame({'Bulan': hist_months, 'Demand': hist_vals, 'Kategori': item_name, 'Periode': 'Historical'})
+            df_f = pd.DataFrame({'Bulan': ['Dec'] + fcst_months, 'Demand': [dec_val] + fcst_vals, 'Kategori': item_name, 'Periode': 'Forecast'})
+            
+            plot_data.extend([df_h, df_f])
+            
+        df_plot_final = pd.concat(plot_data, ignore_index=True)
+        
+        # Render Grafik Perbandingan
+        fig_line = px.line(
+            df_plot_final, x='Bulan', y='Demand', color='Kategori', line_dash='Periode',
+            title=f"Perbandingan Pergerakan Device ({active_scenario})", markers=True
+        )
+
+    else:
+        # 2. MODE SINGLE DEVICE / TOTAL AGGREGATE (Kode yang sebelumnya)
+        if selected_sku == "Total Aggregate (Semua Device)":
+            hist_values = df_a[hist_months].apply(pd.to_numeric).sum().tolist()
+            base_values = df_a[fcst_months].apply(pd.to_numeric).sum().tolist()
+            chart_title = "Total Aggregate Demand (All Devices)"
+        else:
+            sku_data_full = df_a[df_a['Item'] == selected_sku].iloc[0]
+            hist_values = [pd.to_numeric(sku_data_full[m]) for m in hist_months]
+            base_values = [pd.to_numeric(sku_data_full[m]) for m in fcst_months]
+            chart_title = f"End-to-End Demand Visibility: {selected_sku}"
+
+        dec_value = hist_values[-1] 
+        agg_values = [v * 1.2 for v in base_values]
+        down_values = [v * 0.8 for v in base_values]
+        
+        df_hist = pd.DataFrame({'Bulan': hist_months, 'Demand': hist_values, 'Tipe': 'Historical (Aktual)'})
+        df_base = pd.DataFrame({'Bulan': ['Dec'] + fcst_months, 'Demand': [dec_value] + base_values, 'Tipe': 'Base Forecast'})
+        df_agg = pd.DataFrame({'Bulan': ['Dec'] + fcst_months, 'Demand': [dec_value] + agg_values, 'Tipe': 'Aggressive (+20%)'})
+        df_down = pd.DataFrame({'Bulan': ['Dec'] + fcst_months, 'Demand': [dec_value] + down_values, 'Tipe': 'Downside (-20%)'})
+        
+        plot_data_single = [df_hist]
+        if scenario_filter == "Semua Skenario":
+            plot_data_single.extend([df_base, df_agg, df_down])
+        elif scenario_filter == "Base Scenario":
+            plot_data_single.append(df_base)
+        elif scenario_filter == "Aggressive (+20%)":
+            plot_data_single.append(df_agg)
+        elif scenario_filter == "Downside (-20%)":
+            plot_data_single.append(df_down)
+            
+        df_plot_final = pd.concat(plot_data_single, ignore_index=True)
+        
+        fig_line = px.line(
+            df_plot_final, x='Bulan', y='Demand', color='Tipe', title=chart_title, markers=True,
+            color_discrete_map={'Historical (Aktual)': '#64748b', 'Base Forecast': '#3b82f6', 'Aggressive (+20%)': '#10b981', 'Downside (-20%)': '#ef4444'}
+        )
+        
+    # --- PENGATURAN UMUM GRAFIK (Berlaku untuk kedua mode) ---
     fig_line.update_xaxes(categoryorder='array', categoryarray=all_months_ordered)
-    
     fig_line.add_vline(x='Dec', line_width=2, line_dash="dot", line_color="gray")
     fig_line.add_annotation(
         x='Dec', y=1.05, yref='paper', text="Mulai Forecast ➡️", 
         showarrow=False, font=dict(color="gray", size=12), xanchor="right"
     )
-    
     fig_line.update_layout(height=450, hovermode='x unified', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     
     st.plotly_chart(fig_line, use_container_width=True)
