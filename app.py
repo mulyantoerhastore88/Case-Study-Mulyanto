@@ -548,9 +548,9 @@ with tab3:
         header_ctx = data_c[14][:2]
         df_ctx = pd.DataFrame([row[:2] for row in data_c[15:18]], columns=header_ctx)
         
-        # PARSING BLOK 4: STRATEGY (Baris 21-24)
+        # PARSING BLOK 4: STRATEGY (Baris 21-25 - Diperlebar untuk ambil Kesimpulan)
         header_strat = data_c[20][:2]
-        df_strat = pd.DataFrame([row[:2] for row in data_c[21:24]], columns=header_strat)
+        df_strat = pd.DataFrame([row[:2] for row in data_c[21:25]], columns=header_strat)
 
         # Menampilkan Context Bar (Otomatis dari GSheet)
         target_growth = df_ctx.iloc[1]['Value / Description']
@@ -599,7 +599,7 @@ with tab3:
 
     st.markdown("---")
     
-    # MENAMPILKAN STRATEGY DARI GSHEET
+    # MENAMPILKAN STRATEGY & KESIMPULAN DARI GSHEET
     st.markdown("#### 🛡️ Professional Challenge Strategy")
     st.warning("Bagaimana cara menantang target Sales yang over-optimis tanpa terlihat membangkang? Berikut adalah protokol S&OP kita:")
     
@@ -629,9 +629,10 @@ with tab3:
         </div>
         """, unsafe_allow_html=True)
         
-        st.markdown("""
+        # KESIMPULAN KINI DINAMIS DARI GSHEET (Index 3 / Baris ke-4 di tabel Blok 4)
+        st.markdown(f"""
         <div class='card' style='border-left: 5px solid #10b981;'>
-            <h4 style='color:#10b981;'>✅ The Final Pitch (Kesimpulan)</h4>
-            <p><i>"Manajemen, S&OP bukan tentang membunuh ambisi Sales, tapi tentang menyeimbangkan Ambisi dengan Realita Kapasitas. Dengan strategi Phased Commitment, kita bisa mengejar target tinggi tanpa mengulangi kesalahan overstock 5 Miliar."</i></p>
+            <h4 style='color:#10b981;'>{df_strat.iloc[3]['Strategy Pillar']}</h4>
+            <p><i>"{df_strat.iloc[3]['Explanation & Response to Management']}"</i></p>
         </div>
         """, unsafe_allow_html=True)
