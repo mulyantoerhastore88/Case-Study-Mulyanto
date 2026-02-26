@@ -70,7 +70,7 @@ except Exception as e:
 st.markdown("<div class='main-header'><h1>🚀 FOOM LAB GLOBAL: S&OP Command Center (Case Study_Mulyanto)</h1><p>Strategic Supply & Demand Validation System | Mulyanto</p></div>", unsafe_allow_html=True)
 
 # --- TABS ---
-tab1, tab2, tab3 = st.tabs(["📊 PART A: Replenishment & Scenarios", "💀 PART B: Cash Unlock & Dead Stock", "⚙️ PART C: S&OP Governance"])
+tab1, tab2, tab3 = st.tabs(["📊 PART A: Replenishment & Scenarios", "PART B: Cash Unlock & Dead Stock", "⚙️ PART C: S&OP Governance"])
 
 # ==========================================
 # TAB 1: REPLENISHMENT & SCENARIOS
