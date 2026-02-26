@@ -601,7 +601,7 @@ with tab3:
     
     # MENAMPILKAN STRATEGY & KESIMPULAN DARI GSHEET
     st.markdown("#### 🛡️ Professional Challenge Strategy")
-    st.warning("Bagaimana cara menantang target Sales yang over-optimis tanpa terlihat membangkang? Berikut adalah protokol S&OP kita:")
+    st.warning(" How to challenge Sales forecast professionally:")
     
     col_strat1, col_strat2 = st.columns(2)
     
