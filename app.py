@@ -128,22 +128,77 @@ with tab1:
             
     st.dataframe(comparison_table, use_container_width=True, hide_index=True)
     
-    # Visualisasi Skenario
-    selected_sku = st.selectbox("Pilih SKU untuk detail scenario:", df_a['Item'].tolist(), key="sku_selector")
-    sku_data = df_scenarios[df_scenarios['Item'] == selected_sku].iloc[0]
-    months = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6']
-    base_values = [sku_data[m] for m in months]
+    # ===== VISUALISASI FULL TIMELINE (HISTORICAL + FORECAST) =====
+    st.markdown("#### 📈 Full Timeline: Historical & Forecast Scenarios")
     
-    plot_df = pd.DataFrame({
-        'Month': months,
-        'Base': base_values,
-        'Aggressive (+20%)': [v * 1.2 for v in base_values],
-        'Downside (-20%)': [v * 0.8 for v in base_values]
-    })
+    col_vis1, col_vis2 = st.columns([1, 3])
     
-    plot_df_melted = plot_df.melt(id_vars=['Month'], var_name='Scenario', value_name='Forecast')
-    fig_line = px.line(plot_df_melted, x='Month', y='Forecast', color='Scenario', title=f"6-Month Forecast Scenarios: {selected_sku}", markers=True, color_discrete_map={'Base': '#3b82f6', 'Aggressive (+20%)': '#10b981', 'Downside (-20%)': '#ef4444'})
-    st.plotly_chart(fig_line, use_container_width=True)
+    with col_vis1:
+        st.info("💡 **Gunakan filter di bawah** untuk mensimulasikan proyeksi demand dibandingkan dengan data historis.")
+        selected_sku = st.selectbox("1️⃣ Pilih SKU:", df_a['Item'].tolist(), key="sku_selector")
+        scenario_filter = st.radio("2️⃣ Tampilkan Skenario:", 
+                                   ["Semua Skenario", "Base Scenario", "Aggressive (+20%)", "Downside (-20%)"])
+    
+    # Ambil data SKU terpilih dari DataFrame asli
+    sku_data_full = df_a[df_a['Item'] == selected_sku].iloc[0]
+    
+    # 1. Siapkan Data Historis (Jan - Dec)
+    hist_months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    hist_values = [sku_data_full[m] for m in hist_months]
+    dec_value = hist_values[-1] # Titik sambung untuk grafik forecast
+    
+    # 2. Siapkan Data Forecast (M1 - M6)
+    fcst_months = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6']
+    base_values = [sku_data_full[m] for m in fcst_months]
+    agg_values = [v * 1.2 for v in base_values]
+    down_values = [v * 0.8 for v in base_values]
+    
+    # 3. Bentuk DataFrame terpisah untuk Plotly
+    df_hist = pd.DataFrame({'Bulan': hist_months, 'Demand': hist_values, 'Tipe': 'Historical (Aktual)'})
+    
+    # (Catatan: Kita tambahkan 'Dec' di awal forecast agar garisnya tersambung mulus/tidak terputus)
+    df_base = pd.DataFrame({'Bulan': ['Dec'] + fcst_months, 'Demand': [dec_value] + base_values, 'Tipe': 'Base Forecast'})
+    df_agg = pd.DataFrame({'Bulan': ['Dec'] + fcst_months, 'Demand': [dec_value] + agg_values, 'Tipe': 'Aggressive (+20%)'})
+    df_down = pd.DataFrame({'Bulan': ['Dec'] + fcst_months, 'Demand': [dec_value] + down_values, 'Tipe': 'Downside (-20%)'})
+    
+    # 4. Logika Filter Skenario
+    plot_data = [df_hist]
+    if scenario_filter == "Semua Skenario":
+        plot_data.extend([df_base, df_agg, df_down])
+    elif scenario_filter == "Base Scenario":
+        plot_data.append(df_base)
+    elif scenario_filter == "Aggressive (+20%)":
+        plot_data.append(df_agg)
+    elif scenario_filter == "Downside (-20%)":
+        plot_data.append(df_down)
+        
+    df_plot_final = pd.concat(plot_data, ignore_index=True)
+    
+    # 5. Render Grafik dengan Plotly
+    all_months_ordered = hist_months + fcst_months # Urutan baku X-Axis
+    
+    fig_line = px.line(
+        df_plot_final, 
+        x='Bulan', 
+        y='Demand', 
+        color='Tipe', 
+        title=f"End-to-End Demand Visibility: {selected_sku}",
+        markers=True,
+        color_discrete_map={
+            'Historical (Aktual)': '#64748b', # Abu-abu elegan
+            'Base Forecast': '#3b82f6',       # Biru
+            'Aggressive (+20%)': '#10b981',   # Hijau
+            'Downside (-20%)': '#ef4444'      # Merah
+        }
+    )
+    
+    # Kunci urutan bulan dan tambahkan garis batas vertikal di bulan Desember
+    fig_line.update_xaxes(categoryorder='array', categoryarray=all_months_ordered)
+    fig_line.add_vline(x='Dec', line_width=2, line_dash="dot", line_color="gray", annotation_text="Mulai Forecast ➡️", annotation_position="top left")
+    fig_line.update_layout(height=400, hovermode='x unified')
+    
+    with col_vis2:
+        st.plotly_chart(fig_line, use_container_width=True)
 
     # ===== PART 4: STOCK COVER & INVENTORY EXPOSURE =====
     st.markdown("### 📦 3. Stock Health & Replenishment Trigger")
