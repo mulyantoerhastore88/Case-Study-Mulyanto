@@ -490,7 +490,7 @@ with tab2:
         col_trade1, col_trade2 = st.columns(2)
         
         with col_trade1:
-            st.markdown("**Simulasikan strategi persetujuan di sini:**")
+            st.markdown("**🎛️ Simulasi Costing Promo Bundling (Device Z):**")
             units_to_liquidate = st.slider("Jumlah unit yang dilikuidasi", min_value=1000, max_value=int(stock_z), value=int(stock_z), step=1000, key="units_z")
             discount_rate = st.slider("Diskon yang diberikan (%)", min_value=0, max_value=70, value=30, step=10, key="discount_z")
             
