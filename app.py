@@ -132,35 +132,45 @@ with tab1:
     st.markdown("#### 📈 Full Timeline: Historical & Forecast Scenarios")
     st.info("💡 **Gunakan filter di bawah** untuk mensimulasikan proyeksi demand dibandingkan dengan data historis.")
     
-    # FILTER DI ATAS CHART (Berjajar rapi menggunakan 2 kolom)
+    # FILTER DI ATAS CHART
     col_filter1, col_filter2 = st.columns(2)
+    
+    # Tambahkan opsi "Semua Device" di urutan paling atas
+    sku_options = ["Semua Device"] + df_a['Item'].tolist()
+    
     with col_filter1:
-        selected_sku = st.selectbox("1️⃣ Pilih SKU:", df_a['Item'].tolist(), key="sku_selector")
+        selected_sku = st.selectbox("1️⃣ Pilih SKU / View:", sku_options, key="sku_selector")
     with col_filter2:
         scenario_filter = st.selectbox("2️⃣ Tampilkan Skenario:", 
                                    ["Semua Skenario", "Base Scenario", "Aggressive (+20%)", "Downside (-20%)"])
     
-    # Ambil data SKU terpilih
-    sku_data_full = df_a[df_a['Item'] == selected_sku].iloc[0]
-    
-    # 1. Siapkan Data Historis (Jan - Dec)
     hist_months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    hist_values = [sku_data_full[m] for m in hist_months]
-    dec_value = hist_values[-1] # Titik sambung
-    
-    # 2. Siapkan Data Forecast (M1 - M6)
     fcst_months = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6']
-    base_values = [sku_data_full[m] for m in fcst_months]
+    
+    # LOGIKA PENGAMBILAN DATA (Single SKU vs Semua Device)
+    if selected_sku == "Semua Device":
+        # Jika "Semua Device" dipilih, jumlahkan (SUM) semua kolom
+        hist_values = df_a[hist_months].sum().tolist()
+        base_values = df_a[fcst_months].sum().tolist()
+    else:
+        # Jika 1 SKU dipilih, ambil data spesifik SKU tersebut
+        sku_data_full = df_a[df_a['Item'] == selected_sku].iloc[0]
+        hist_values = [sku_data_full[m] for m in hist_months]
+        base_values = [sku_data_full[m] for m in fcst_months]
+
+    dec_value = hist_values[-1] # Titik sambung di bulan Desember
+    
+    # Perhitungan skenario
     agg_values = [v * 1.2 for v in base_values]
     down_values = [v * 0.8 for v in base_values]
     
-    # 3. Bentuk DataFrame terpisah
+    # Bentuk DataFrame terpisah
     df_hist = pd.DataFrame({'Bulan': hist_months, 'Demand': hist_values, 'Tipe': 'Historical (Aktual)'})
     df_base = pd.DataFrame({'Bulan': ['Dec'] + fcst_months, 'Demand': [dec_value] + base_values, 'Tipe': 'Base Forecast'})
     df_agg = pd.DataFrame({'Bulan': ['Dec'] + fcst_months, 'Demand': [dec_value] + agg_values, 'Tipe': 'Aggressive (+20%)'})
     df_down = pd.DataFrame({'Bulan': ['Dec'] + fcst_months, 'Demand': [dec_value] + down_values, 'Tipe': 'Downside (-20%)'})
     
-    # 4. Logika Filter
+    # Logika Filter Skenario
     plot_data = [df_hist]
     if scenario_filter == "Semua Skenario":
         plot_data.extend([df_base, df_agg, df_down])
@@ -173,15 +183,18 @@ with tab1:
         
     df_plot_final = pd.concat(plot_data, ignore_index=True)
     
-    # 5. Render Grafik (Full Width)
+    # Render Grafik (Full Width)
     all_months_ordered = hist_months + fcst_months
+    
+    # Ganti Judul agar dinamis sesuai pilihan
+    chart_title = "Total Aggregate Demand (All Devices)" if selected_sku == "Semua Device" else f"End-to-End Demand Visibility: {selected_sku}"
     
     fig_line = px.line(
         df_plot_final, 
         x='Bulan', 
         y='Demand', 
         color='Tipe', 
-        title=f"End-to-End Demand Visibility: {selected_sku}",
+        title=chart_title,
         markers=True,
         color_discrete_map={
             'Historical (Aktual)': '#64748b', 
@@ -199,10 +212,8 @@ with tab1:
         showarrow=False, font=dict(color="gray", size=12), xanchor="right"
     )
     
-    # Tinggi chart ditambah sedikit (450) agar semakin lega dilihat
     fig_line.update_layout(height=450, hovermode='x unified', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     
-    # CHART DIREKSEKUSI DI LUAR KOLOM AGAR FULL WIDTH
     st.plotly_chart(fig_line, use_container_width=True)
 
     # ===== PART 4: STOCK COVER & INVENTORY EXPOSURE =====
