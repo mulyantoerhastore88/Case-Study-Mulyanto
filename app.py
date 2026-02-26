@@ -248,7 +248,7 @@ with tab1:
 
     # ===== VISUALISASI FULL TIMELINE (HISTORICAL + FORECAST) =====
     st.markdown("#### 📈 Full Timeline: Historical & Forecast Scenarios")
-    st.info("💡 **Gunakan filter di bawah** untuk mensimulasikan proyeksi demand dibandingkan dengan data historis.")
+    st.info("💡 **Filter di bawah ini** untuk mensimulasikan proyeksi demand dibandingkan dengan data historis.")
     
     # FILTER DI ATAS CHART
     col_filter1, col_filter2 = st.columns(2)
