@@ -7,13 +7,90 @@ from google.oauth2.service_account import Credentials
 import numpy as np
 
 # --- 1. PAGE CONFIGURATION & CSS ---
-st.set_page_config(page_title="FOOM S&OP Command Center", layout="wide", page_icon="🚀")
+st.set_page_config(page_title="FOOM S&OP Command Center", layout="wide", page_icon="🚀", initial_sidebar_state="collapsed")
 
+# KOSMETIK PREMIUM UI/UX
 st.markdown("""
     <style>
-    .main-header {background: linear-gradient(90deg, #0f172a 0%, #3b82f6 100%); padding: 20px; border-radius: 10px; color: white; text-align: center; margin-bottom: 20px;}
-    .card {background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; border-left: 5px solid #3b82f6;}
-    .card-alert {border-left: 5px solid #ef4444;}
+    /* Mengubah background utama menjadi abu-abu sangat muda agar card putih lebih menonjol */
+    .stApp {
+        background-color: #f8fafc;
+    }
+    
+    /* Header Utama: Gradasi Biru Gelap ke Biru Terang, bayangan elegan */
+    .main-header {
+        background: linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #3b82f6 100%); 
+        padding: 30px 20px; 
+        border-radius: 12px; 
+        color: white; 
+        text-align: center; 
+        margin-bottom: 25px;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+    .main-header h1 {
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        margin-bottom: 5px;
+    }
+    .main-header p {
+        font-size: 1.1rem;
+        opacity: 0.9;
+    }
+    
+    /* Desain Kartu (Card) Premium dengan efek Hover (Mengambang saat disentuh mouse) */
+    .card {
+        background-color: white; 
+        padding: 24px; 
+        border-radius: 12px; 
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); 
+        margin-bottom: 20px; 
+        border-left: 5px solid #3b82f6;
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        height: 100%;
+    }
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+    .card h4 {
+        margin-top: 0;
+        font-weight: 600;
+        color: #1e293b;
+    }
+    .card p {
+        color: #475569;
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+    
+    /* Mempercantik Tab Navigasi agar terlihat seperti tombol Modern */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background-color: white;
+        padding: 10px 10px 0 10px;
+        border-radius: 10px 10px 0 0;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        white-space: pre-wrap;
+        background-color: transparent;
+        border-radius: 8px 8px 0 0;
+        color: #64748b;
+        font-weight: 600;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #eff6ff !important;
+        color: #1d4ed8 !important;
+        border-bottom: 3px solid #1d4ed8 !important;
+    }
+    
+    /* Mempercantik Tabel Data (Dataframe) */
+    [data-testid="stDataFrame"] {
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+    }
     </style>
 """, unsafe_allow_html=True)
 
