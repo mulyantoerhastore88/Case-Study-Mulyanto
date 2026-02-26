@@ -519,69 +519,109 @@ with tab2:
         """)
 
 # ==========================================
-# TAB 3: S&OP RESTRUCTURE DESIGN (TETAP SAMA)
+# TAB 3: S&OP RESTRUCTURE DESIGN (100% TERKONEKSI GSHEET)
 # ==========================================
 with tab3:
     st.markdown("### ⚙️ S&OP Governance & Cycle Restructure")
-    st.info(f"🎯 **Target Growth: +50%** (Historical: +18%) | Current Forecast Accuracy: 62%")
     
-    col_c1, col_c2 = st.columns([2, 1])
-    with col_c1:
-        st.markdown("#### 📅 Monthly S&OP Cadence")
-        cadence = pd.DataFrame({
-            'Week': ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-            'Activity': ['Demand Review', 'Supply Review', 'Pre-S&OP', 'Executive S&OP'],
-            'Owner': ['Sales & Marketing', 'Supply Chain', 'Demand + Supply Lead', 'Management'],
-            'Output': ['Consensus Forecast', 'Inventory Plan', 'Scenario Analysis', 'Final Decision']
-        })
-        st.dataframe(cadence, use_container_width=True, hide_index=True)
+    if not data_c:
+        st.error("⚠️ Data Part C gagal dimuat. Pastikan worksheet bernama 'Part_C_S&OP'.")
+    else:
+        # Parsing Data GSheet Part C (Perluasan Slicing Baris)
+        header_cadence = data_c[0][:6]
+        df_cadence = pd.DataFrame([row[:6] for row in data_c[1:5]], columns=header_cadence)
         
-        st.markdown("#### 📊 S&OP Timeline")
-        timeline_data = pd.DataFrame({
-            'Task': ['Demand Review', 'Supply Review', 'Pre-S&OP', 'Executive S&OP'],
-            'Start': ['2024-01-01', '2024-01-08', '2024-01-15', '2024-01-22'],
-            'Finish': ['2024-01-07', '2024-01-14', '2024-01-21', '2024-01-28'],
-            'Owner': ['Sales', 'Supply Chain', 'Lead', 'Management']
-        })
-        fig_timeline = px.timeline(timeline_data, x_start='Start', x_end='Finish', y='Task', color='Owner', title="S&OP Monthly Cycle", color_discrete_map={'Sales': '#3b82f6', 'Supply Chain': '#10b981', 'Lead': '#f59e0b', 'Management': '#ef4444'})
-        fig_timeline.update_layout(xaxis=dict(title="Week of Month", tickformat="%d %b"), yaxis=dict(title="", autorange="reversed"), height=300, showlegend=True)
-        st.plotly_chart(fig_timeline, use_container_width=True)
+        header_kpi = data_c[7][:4]
+        df_kpi = pd.DataFrame([row[:4] for row in data_c[8:12]], columns=header_kpi)
         
-    with col_c2:
-        st.markdown("#### 🎯 KPI Dashboard")
-        kpi_data = pd.DataFrame({'KPI': ['Forecast Accuracy', 'Service Level', 'Inventory Turnover', 'Dead Stock %'], 'Target': ['85%', '98%', '6x', '<5%'], 'Current': ['62%', '85%', '3.2x', '18%'], 'Status': ['🔴', '🟡', '🟡', '🔴']})
-        st.dataframe(kpi_data, use_container_width=True, hide_index=True)
-        fig_gauge = go.Figure(go.Indicator(mode="gauge+number+delta", value=62, domain={'x': [0, 1], 'y': [0, 1]}, title={'text': "Forecast Accuracy"}, delta={'reference': 85, 'increasing': {'color': "red"}}, gauge={'axis': {'range': [0, 100]}, 'bar': {'color': "#3b82f6"}, 'steps': [{'range': [0, 50], 'color': '#fee2e2'}, {'range': [50, 75], 'color': '#fef9c3'}, {'range': [75, 100], 'color': '#dcfce7'}], 'threshold': {'line': {'color': "red", 'width': 4}, 'thickness': 0.75, 'value': 85}}))
-        fig_gauge.update_layout(height=200, margin=dict(l=30, r=30, t=50, b=30))
-        st.plotly_chart(fig_gauge, use_container_width=True)
+        # PARSING BLOK 3: CONTEXT (Baris 15-18)
+        header_ctx = data_c[14][:2]
+        df_ctx = pd.DataFrame([row[:2] for row in data_c[15:18]], columns=header_ctx)
+        
+        # PARSING BLOK 4: STRATEGY (Baris 21-24)
+        header_strat = data_c[20][:2]
+        df_strat = pd.DataFrame([row[:2] for row in data_c[21:24]], columns=header_strat)
+
+        # Menampilkan Context Bar (Otomatis dari GSheet)
+        target_growth = df_ctx.iloc[1]['Value / Description']
+        hist_growth = df_ctx.iloc[0]['Value / Description']
+        prev_fail = df_ctx.iloc[2]['Value / Description']
+        
+        st.info(f"🎯 **Management Challenge:** Target Growth **{target_growth}** | Historical Growth **{hist_growth}** | Previous Decision Issue: **{prev_fail}**")
+
+        col_c1, col_c2 = st.columns([2, 1])
+        
+        with col_c1:
+            st.markdown("#### 📅 Monthly S&OP Cadence")
+            st.dataframe(df_cadence[['Week', 'Task', 'Owner', 'Output']], use_container_width=True, hide_index=True)
+            
+            st.markdown("#### 📊 S&OP Timeline")
+            df_timeline = df_cadence.copy()
+            df_timeline['Start Date'] = pd.to_datetime(df_timeline['Start Date'])
+            df_timeline['Finish Date'] = pd.to_datetime(df_timeline['Finish Date'])
+            
+            fig_timeline = px.timeline(
+                df_timeline, x_start='Start Date', x_end='Finish Date', y='Task', color='Owner', 
+                title="S&OP Monthly Cycle", 
+                color_discrete_map={'Sales & Marketing': '#3b82f6', 'Supply Chain': '#10b981', 'Demand + Supply Lead': '#f59e0b', 'Management': '#ef4444'}
+            )
+            fig_timeline.update_layout(xaxis=dict(title="Timeline", tickformat="%d %b"), yaxis=dict(title="", autorange="reversed"), height=300, showlegend=True)
+            st.plotly_chart(fig_timeline, use_container_width=True)
+            
+        with col_c2:
+            st.markdown("#### 🎯 KPI Dashboard")
+            st.dataframe(df_kpi, use_container_width=True, hide_index=True)
+            
+            acc_val = float(df_kpi.iloc[0]['Current'].replace('%', ''))
+            acc_target = float(df_kpi.iloc[0]['Target'].replace('%', ''))
+            
+            fig_gauge = go.Figure(go.Indicator(
+                mode="gauge+number+delta", value=acc_val, domain={'x': [0, 1], 'y': [0, 1]}, 
+                title={'text': "Forecast Accuracy"}, delta={'reference': acc_target, 'increasing': {'color': "red"}}, 
+                gauge={
+                    'axis': {'range': [0, 100]}, 'bar': {'color': "#3b82f6"}, 
+                    'steps': [{'range': [0, 50], 'color': '#fee2e2'}, {'range': [50, 75], 'color': '#fef9c3'}, {'range': [75, 100], 'color': '#dcfce7'}], 
+                    'threshold': {'line': {'color': "red", 'width': 4}, 'thickness': 0.75, 'value': acc_target}
+                }
+            ))
+            fig_gauge.update_layout(height=200, margin=dict(l=30, r=30, t=50, b=30))
+            st.plotly_chart(fig_gauge, use_container_width=True)
 
     st.markdown("---")
-    st.markdown("### 📊 Performance & Gap Analysis")
-    col_gap1, col_gap2 = st.columns(2)
-
-    with col_gap1:
-        st.markdown("#### 🎯 Historical Forecast Accuracy (62%)")
-        acc_data = pd.DataFrame({'Month': ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], 'Actual Sales': [9800, 10000, 10200, 10500, 11100, 11800], 'Sales Forecast': [15800, 16100, 16400, 16900, 17900, 19000]})
-        acc_data['Overforecast (Error)'] = acc_data['Sales Forecast'] - acc_data['Actual Sales']
-        fig_acc = px.bar(acc_data, x='Month', y=['Actual Sales', 'Overforecast (Error)'], title="Actual vs Forecast (Gap = Dead Stock Potential)", barmode='stack', color_discrete_map={'Actual Sales': '#3b82f6', 'Overforecast (Error)': '#ef4444'})
-        fig_acc.update_layout(height=300, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-        st.plotly_chart(fig_acc, use_container_width=True)
-
-    with col_gap2:
-        st.markdown("#### 📉 Target Inventory Reduction (-20%)")
-        inv_trajectory = pd.DataFrame({'Month': ['Current', 'M1', 'M2', 'M3 (Unlock Phase)', 'M4', 'M5', 'M6 (Target)'], 'Inventory Value': [25.0, 24.5, 24.0, 20.0, 19.5, 20.0, 20.0], 'Target Line': [25.0, 24.1, 23.3, 22.5, 21.6, 20.8, 20.0]})
-        fig_inv = go.Figure()
-        fig_inv.add_trace(go.Scatter(x=inv_trajectory['Month'], y=inv_trajectory['Inventory Value'], mode='lines+markers+text', name='Projected Value', line=dict(color='#3b82f6', width=3), text=inv_trajectory['Inventory Value'], textposition="top right"))
-        fig_inv.add_trace(go.Scatter(x=inv_trajectory['Month'], y=inv_trajectory['Target Line'], mode='lines', name='-20% Target Path', line=dict(color='#10b981', width=2, dash='dash')))
-        fig_inv.update_layout(title="Inventory Trajectory (Billion IDR)", height=300, yaxis_title="IDR (Miliar)", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-        st.plotly_chart(fig_inv, use_container_width=True)
-
-    st.markdown("---")
-    st.markdown("#### 🛡️ Professional Challenge Strategy (Menantang Target Sales +50%)")
+    
+    # MENAMPILKAN STRATEGY DARI GSHEET
+    st.markdown("#### 🛡️ Professional Challenge Strategy")
+    st.warning("Bagaimana cara menantang target Sales yang over-optimis tanpa terlihat membangkang? Berikut adalah protokol S&OP kita:")
+    
     col_strat1, col_strat2 = st.columns(2)
+    
+    # Looping data dari GSheet untuk membuat Card
     with col_strat1:
-        st.markdown("<div class='card'><h4>🔍 Triangulation Method</h4><p><b>Question:</b> \"How does this +50% growth compare to last year's actual + promotion impact?\"</p></div>", unsafe_allow_html=True)
-        st.markdown("<div class='card'><h4>⚠️ Risk Assessment</h4><p><b>Logic:</b> With 62% forecast accuracy, historical error = ±20%. I recommend planning for +30% with upside option.</p></div>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class='card'>
+            <h4>🔍 {df_strat.iloc[0]['Strategy Pillar']}</h4>
+            <p>{df_strat.iloc[0]['Explanation & Response to Management']}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        <div class='card'>
+            <h4>⚠️ {df_strat.iloc[1]['Strategy Pillar']}</h4>
+            <p>{df_strat.iloc[1]['Explanation & Response to Management']}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
     with col_strat2:
-        st.markdown("<div class='card'><h4>📊 Scenario Planning</h4><p><b>Question:</b> \"What if we only achieve 60% of target? What's the inventory impact?\"</p></div>", unsafe_allow_html=True)
-        st.markdown("<div class='card'><h4>🔄 Phased Commitment</h4><p><b>Logic:</b> Split target. Commit inventory for +25% now. Remaining via air freight if confirmed by M2.</p></div>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class='card'>
+            <h4>🔄 {df_strat.iloc[2]['Strategy Pillar']}</h4>
+            <p>{df_strat.iloc[2]['Explanation & Response to Management']}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div class='card' style='border-left: 5px solid #10b981;'>
+            <h4 style='color:#10b981;'>✅ The Final Pitch (Kesimpulan)</h4>
+            <p><i>"Manajemen, S&OP bukan tentang membunuh ambisi Sales, tapi tentang menyeimbangkan Ambisi dengan Realita Kapasitas. Dengan strategi Phased Commitment, kita bisa mengejar target tinggi tanpa mengulangi kesalahan overstock 5 Miliar."</i></p>
+        </div>
+        """, unsafe_allow_html=True)
