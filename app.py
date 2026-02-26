@@ -27,19 +27,26 @@ def load_data_from_gsheet():
     sheet_url = "https://docs.google.com/spreadsheets/d/1xN5gQ6r7I0QUXs6-9FZLqH9wMxd9H2-R8ViLnp3twuI/edit"
     sh = client.open_by_url(sheet_url)
     
-    # LOAD PART A (Membaca seluruh 45 Kolom)
+    # LOAD PART A
     ws_a = sh.worksheet("Part_A_Stock&SKU_Detail")
     data_a = ws_a.get_all_values()
     df_a = pd.DataFrame(data_a[1:], columns=data_a[0])
-    df_a.columns = df_a.columns.str.strip() # Pembersihan spasi nama kolom
+    df_a.columns = df_a.columns.str.strip()
     
-    return df_a
+    # LOAD PART B (Sesuai nama sheet baru Bapak)
+    try:
+        ws_b = sh.worksheet("Part_B_DEAD_STOCK_&_CASH_UNLOCK")
+        data_b = ws_b.get_all_values()
+    except:
+        data_b = [] # Fallback jika nama sheet salah
+        
+    return df_a, data_b
 
 # Load Data
 try:
-    df_a = load_data_from_gsheet()
+    df_a, data_b = load_data_from_gsheet()
     
-    # KONVERSI SEMUA KOLOM ANGKA DARI STRING KE NUMERIC
+    # KONVERSI SEMUA KOLOM ANGKA DARI STRING KE NUMERIC (PART A)
     numeric_columns = [
         'Unit Cost', 'MOQ', 'Current Stock', 'Stock Value', 
         'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 
@@ -53,11 +60,9 @@ try:
     
     for col in numeric_columns:
         if col in df_a.columns:
-            # Hapus koma/Rp sebelum konversi
             df_a[col] = df_a[col].astype(str).str.replace(r'[Rp, ]', '', regex=True)
             df_a[col] = pd.to_numeric(df_a[col], errors='coerce').fillna(0)
             
-    # SORTING BERDASARKAN PRIORITY RANK AGAR CUMULATIVE BEKERJA TEPAT
     if 'Priority Rank' in df_a.columns:
         df_a = df_a.sort_values(by='Priority Rank', ascending=True).reset_index(drop=True)
 
