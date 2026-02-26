@@ -389,13 +389,22 @@ with tab2:
     if not data_b:
         st.error("⚠️ Data Part B gagal dimuat. Pastikan nama worksheet di GSheet adalah 'Part_B_DEAD_STOCK_&_CASH_UNLOCK'.")
     else:
-        # --- PARSING DATA DARI GSHEET PART B ---
-        # 1. Parsing Portfolio (Baris 1-5 di excel -> index 0-4 di Python)
-        df_port = pd.DataFrame(data_b[1:5], columns=data_b[0])
-        # 2. Parsing Detail Device Z (Baris 7-8 di excel -> index 6-7 di Python)
-        df_z = pd.DataFrame([data_b[7]], columns=data_b[6])
-        # 3. Parsing Scenario (Baris 11-17 di excel -> index 10-16 di Python)
-        df_scen = pd.DataFrame(data_b[11:17], columns=data_b[10])
+        # --- PARSING DATA DARI GSHEET PART B (DIPERBAIKI: MENCEGAH DUPLIKAT KOLOM KOSONG) ---
+        # 1. Parsing Portfolio (Ambil 5 kolom saja: A-E)
+        header_port = data_b[0][:5]
+        data_port = [row[:5] for row in data_b[1:5]]
+        df_port = pd.DataFrame(data_port, columns=header_port)
+        
+        # 2. Parsing Detail Device Z (Ambil 9 kolom: A-I)
+        header_z = data_b[6][:9]
+        data_z = [data_b[7][:9]]
+        df_z = pd.DataFrame(data_z, columns=header_z)
+        
+        # 3. Parsing Scenario (Ambil 8 kolom: A-H)
+        header_scen = data_b[10][:8]
+        data_scen = [row[:8] for row in data_b[11:17]]
+        df_scen = pd.DataFrame(data_scen, columns=header_scen)
+
 
         # --- TAMPILAN BLOK 1: PORTFOLIO MASTERPLAN ---
         st.markdown("#### 🚀 The 90-Day Liquidation Portfolio (Road to 5 Miliar)")
