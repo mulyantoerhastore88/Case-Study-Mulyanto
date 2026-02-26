@@ -33,18 +33,28 @@ def load_data_from_gsheet():
     df_a = pd.DataFrame(data_a[1:], columns=data_a[0])
     df_a.columns = df_a.columns.str.strip()
     
-    # LOAD PART B (Sesuai nama sheet baru Bapak)
+    # LOAD PART B
     try:
         ws_b = sh.worksheet("Part_B_DEAD_STOCK_&_CASH_UNLOCK")
         data_b = ws_b.get_all_values()
     except:
-        data_b = [] # Fallback jika nama sheet salah
+        data_b = []
         
-    return df_a, data_b
+    # LOAD PART C (PERBAIKAN: MEMANGGIL SHEET PART C)
+    try:
+        ws_c = sh.worksheet("Part_C_S&OP_ RESTRUCTURE_DESIGN") 
+        data_c = ws_c.get_all_values()
+    except Exception as e:
+        print(f"Error loading Part C: {e}")
+        data_c = []
+        
+    # PERBAIKAN: MERETURN KETIGA DATA
+    return df_a, data_b, data_c
 
 # Load Data
 try:
-    df_a, data_b = load_data_from_gsheet()
+    # PERBAIKAN: MENERIMA KETIGA DATA
+    df_a, data_b, data_c = load_data_from_gsheet()
     
     # KONVERSI SEMUA KOLOM ANGKA DARI STRING KE NUMERIC (PART A)
     numeric_columns = [
