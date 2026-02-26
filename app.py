@@ -192,9 +192,21 @@ with tab1:
         }
     )
     
-    # Kunci urutan bulan dan tambahkan garis batas vertikal di bulan Desember
+    # Kunci urutan bulan
     fig_line.update_xaxes(categoryorder='array', categoryarray=all_months_ordered)
-    fig_line.add_vline(x='Dec', line_width=2, line_dash="dot", line_color="gray", annotation_text="Mulai Forecast ➡️", annotation_position="top left")
+    
+    # PERBAIKAN BUG: Pisahkan pembuatan garis vertikal dengan teks anotasi
+    fig_line.add_vline(x='Dec', line_width=2, line_dash="dot", line_color="gray")
+    fig_line.add_annotation(
+        x='Dec', 
+        y=1.05,           # Posisi Y (di atas grafik sedikit)
+        yref='paper',     # Referensi posisi agar responsif
+        text="Mulai Forecast ➡️", 
+        showarrow=False, 
+        font=dict(color="gray", size=12),
+        xanchor="right"   # Posisi teks di sebelah kiri garis
+    )
+    
     fig_line.update_layout(height=400, hovermode='x unified')
     
     with col_vis2:
