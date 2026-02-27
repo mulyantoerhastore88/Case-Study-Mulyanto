@@ -272,7 +272,7 @@ with tab1:
     fcst_months = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6']
     all_months_ordered = hist_months + fcst_months
 
-    if selected_sku == "Bandingkan Semua Device":
+    if selected_sku == "Tampilkan Semua Device":
         if scenario_filter == "Semua Skenario":
             st.warning("⚠️ Menampilkan 'Semua Skenario' untuk 3 Device sekaligus akan membuat grafik terlalu penuh. Tampilan otomatis dikunci ke 'Base Scenario'.")
             active_scenario = "Base Scenario"
