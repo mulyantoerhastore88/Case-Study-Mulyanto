@@ -475,7 +475,7 @@ with tab1:
 # TAB 2: DEAD STOCK & CASH UNLOCK (TERKONEKSI GSHEET) - GAUGE DIPERBAIKI
 # ==========================================
 with tab2:
-    st.markdown("### 💰 The 5 Billion Cash Unlock Masterplan")
+    st.markdown("### 💰 PART B – DEAD STOCK & CASH UNLOCK SIMULATION")
     st.warning("🎯 **Target: Unlock minimum IDR 5 Miliar in 90 days**")
     
     if not data_b:
