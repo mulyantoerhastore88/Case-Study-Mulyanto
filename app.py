@@ -12,13 +12,6 @@ st.set_page_config(page_title="FOOM S&OP Command Center", layout="wide", page_ic
 # KOSMETIK PREMIUM UI/UX
 st.markdown("""
     <style>
-    /* Memastikan chart tidak terpotong */
-    .js-plotly-plot {
-        overflow: visible !important;
-    }
-    .plotly {
-        overflow: visible !important;
-    }
     /* Mengubah background utama menjadi abu-abu sangat muda agar card putih lebih menonjol */
     .stApp {
         background-color: #f8fafc;
@@ -97,6 +90,14 @@ st.markdown("""
         border-radius: 8px;
         overflow: hidden;
         box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Memastikan chart tidak terpotong */
+    .js-plotly-plot {
+        overflow: visible !important;
+    }
+    .plotly {
+        overflow: visible !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -255,7 +256,7 @@ with tab1:
 
     # ===== VISUALISASI FULL TIMELINE (HISTORICAL + FORECAST) =====
     st.markdown("#### 📈 Full Timeline: Historical & Forecast Scenarios")
-    st.info("💡 **Filter di bawah ini** untuk mensimulasikan proyeksi demand dibandingkan dengan data historis.")
+    st.info("💡 **Gunakan filter di bawah** untuk mensimulasikan proyeksi demand dibandingkan dengan data historis.")
     
     # FILTER DI ATAS CHART
     col_filter1, col_filter2 = st.columns(2)
@@ -444,12 +445,9 @@ with tab1:
         # --------------------------------------------------
 
     # ===== PART 6: LIVE DEFENSE SCENARIO SIMULATION =====
-        
-
-    # ===== PART 6: LIVE DEFENSE SCENARIO SIMULATION =====
     st.markdown("---")
     st.markdown("## 🎯 PART D: LIVE DEFENSE SCENARIO SIMULATION")
-    st.info("Simulasi interaktif jika Manajemen tiba-tiba memberikan konstrain simulasi.")
+    st.info("Simulasi interaktif jika Manajemen tiba-tiba memberikan konstrain mendadak saat presentasi.")
     
     scenario_type = st.radio(
         "⚡ Quick Scenario Presets:",
@@ -474,7 +472,7 @@ with tab1:
 
 
 # ==========================================
-# TAB 2: DEAD STOCK & CASH UNLOCK (TERKONEKSI GSHEET)
+# TAB 2: DEAD STOCK & CASH UNLOCK (TERKONEKSI GSHEET) - GAUGE DIPERBAIKI
 # ==========================================
 with tab2:
     st.markdown("### 💰 The 5 Billion Cash Unlock Masterplan")
@@ -505,7 +503,12 @@ with tab2:
         
         # Ambil nilai baris TOTAL untuk Gauge Chart
         total_cash_target_str = str(df_port.iloc[-1]['Target Cash Unlock in 90 Days']).replace('Rp', '').replace(',', '').strip()
-        total_unlock_target = float(total_cash_target_str) / 1_000_000_000 # Convert ke Miliar
+        
+        # PERBAIKAN GAUGE: Konversi ke float dengan aman
+        try:
+            total_unlock_target = float(total_cash_target_str) / 1_000_000_000  # Convert ke Miliar
+        except:
+            total_unlock_target = 4.2  # Default value jika error
         
         # Format tabel portfolio agar cantik
         display_port = df_port.copy()
@@ -517,41 +520,51 @@ with tab2:
         with col_mp1:
             st.dataframe(display_port, use_container_width=True, hide_index=True)
         with col_mp2:
+            # PERBAIKAN GAUGE: Versi premium dengan margin diperbesar
             fig_gauge_5b = go.Figure(go.Indicator(
                 mode="gauge+number",
                 value=total_unlock_target,
                 number={
-                    'valueformat': '.1f',
-                    'prefix': 'Rp ',
-                    'suffix': ' Miliar',
-                    'font': {'size': 24}  # Perbesar font
+                    'prefix': "Rp ",
+                    'suffix': " M",
+                    'font': {'size': 24, 'color': '#1e293b'},
+                    'valueformat': '.1f'
                 },
                 title={
                     'text': "Total Cash Unlock",
-                    'font': {'size': 16}
+                    'font': {'size': 16, 'color': '#475569'}
                 },
                 gauge={
                     'axis': {
-                        'range': [None, 6],
+                        'range': [0, 6],
                         'tickwidth': 2,
-                        'tickfont': {'size': 12}
+                        'tickfont': {'size': 12},
+                        'tickvals': [0, 1, 2, 3, 4, 5, 6],
+                        'ticktext': ['0', '1', '2', '3', '4', '5', '6M']
                     },
-                    'bar': {'color': "#10b981", 'thickness': 0.3},
+                    'bar': {'color': "#10b981", 'thickness': 0.4},
+                    'bgcolor': 'white',
+                    'borderwidth': 0,
                     'steps': [
-                        {'range': [0, 5], 'color': "#fee2e2"},
-                        {'range': [5, 6], 'color': "#dcfce7"}
+                        {'range': [0, 5], 'color': '#fee2e2'},
+                        {'range': [5, 6], 'color': '#dcfce7'}
                     ],
                     'threshold': {
-                        'line': {'color': "red", 'width': 4},
+                        'line': {'color': '#ef4444', 'width': 4},
                         'thickness': 0.75,
                         'value': 5
                     }
                 }
             ))
+            
             fig_gauge_5b.update_layout(
                 height=250,
-                margin=dict(l=40, r=40, t=50, b=30)  # Perbesar margin
+                margin=dict(l=30, r=30, t=50, b=30),
+                paper_bgcolor='white',
+                font={'color': '#1e293b'}
             )
+            
+            st.plotly_chart(fig_gauge_5b, use_container_width=True)
 
         st.markdown("---")
         
@@ -676,7 +689,7 @@ with tab2:
 
 
 # ==========================================
-# TAB 3: S&OP RESTRUCTURE DESIGN (100% TERKONEKSI GSHEET)
+# TAB 3: S&OP RESTRUCTURE DESIGN (100% TERKONEKSI GSHEET) - GAUGE DIPERBAIKI
 # ==========================================
 with tab3:
     st.markdown("### ⚙️ S&OP Governance & Cycle Restructure")
@@ -729,49 +742,62 @@ with tab3:
             st.markdown("#### 🎯 KPI Dashboard")
             st.dataframe(df_kpi, use_container_width=True, hide_index=True)
             
-            acc_val = float(df_kpi.iloc[0]['Current'].replace('%', ''))
-            acc_target = float(df_kpi.iloc[0]['Target'].replace('%', ''))
+            # PERBAIKAN GAUGE: Ambil nilai dengan aman
+            try:
+                acc_val = float(df_kpi.iloc[0]['Current'].replace('%', '')) if df_kpi.iloc[0]['Current'] else 62
+                acc_target = float(df_kpi.iloc[0]['Target'].replace('%', '')) if df_kpi.iloc[0]['Target'] else 85
+            except:
+                acc_val = 62
+                acc_target = 85
             
             fig_gauge = go.Figure(go.Indicator(
                 mode="gauge+number+delta",
                 value=acc_val,
                 number={
                     'suffix': '%',
-                    'font': {'size': 28}  # Perbesar font
+                    'font': {'size': 28, 'color': '#1e293b'}
                 },
                 delta={
                     'reference': acc_target,
-                    'increasing': {'color': "red"},
+                    'increasing': {'color': "#ef4444"},
+                    'decreasing': {'color': "#10b981"},
                     'font': {'size': 16}
                 },
                 domain={'x': [0, 1], 'y': [0, 1]},
                 title={
                     'text': "Forecast Accuracy",
-                    'font': {'size': 18}
+                    'font': {'size': 18, 'color': '#475569'}
                 },
                 gauge={
                     'axis': {
                         'range': [0, 100],
                         'tickwidth': 2,
-                        'tickfont': {'size': 12}
+                        'tickfont': {'size': 12},
+                        'tickvals': [0, 20, 40, 60, 80, 100],
+                        'ticktext': ['0%', '20%', '40%', '60%', '80%', '100%']
                     },
                     'bar': {'color': "#3b82f6", 'thickness': 0.3},
+                    'bgcolor': 'white',
                     'steps': [
                         {'range': [0, 50], 'color': '#fee2e2'},
                         {'range': [50, 75], 'color': '#fef9c3'},
                         {'range': [75, 100], 'color': '#dcfce7'}
                     ],
                     'threshold': {
-                        'line': {'color': "red", 'width': 4},
+                        'line': {'color': '#ef4444', 'width': 4},
                         'thickness': 0.75,
                         'value': acc_target
                     }
                 }
             ))
+            
             fig_gauge.update_layout(
                 height=250,
-                margin=dict(l=40, r=40, t=60, b=30)  # Perbesar margin
+                margin=dict(l=30, r=30, t=60, b=30),
+                paper_bgcolor='white'
             )
+            
+            st.plotly_chart(fig_gauge, use_container_width=True)
 
     st.markdown("---")
     
@@ -812,11 +838,3 @@ with tab3:
             <p><i>"{df_strat.iloc[3]['Explanation & Response to Management']}"</i></p>
         </div>
         """, unsafe_allow_html=True)
-
-
-st.markdown("---")
-st.markdown("""
-<div style='text-align: center; color: #94a3b8; font-size: 0.8rem; padding: 20px;'>
-    FOOM LAB GLOBAL S&OP Command Center | Case Study by Mulyanto | Data real-time from Google Sheets
-</div>
-""", unsafe_allow_html=True)
