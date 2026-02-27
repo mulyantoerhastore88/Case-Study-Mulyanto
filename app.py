@@ -802,7 +802,7 @@ with tab3:
     st.markdown("---")
     
     # MENAMPILKAN STRATEGY & KESIMPULAN DARI GSHEET
-    st.markdown("#### 🛡️ Professional Challenge Strategy")
+    st.markdown("#### 🛡️ Sales Forecast Challenge Strategy")
     st.warning(" How to challenge Sales forecast professionally:")
     
     col_strat1, col_strat2 = st.columns(2)
