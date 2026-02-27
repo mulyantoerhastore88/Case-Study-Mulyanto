@@ -260,7 +260,7 @@ with tab1:
     
     # FILTER DI ATAS CHART
     col_filter1, col_filter2 = st.columns(2)
-    sku_options = ["Total Aggregate (Semua Device)", "Bandingkan Semua Device"] + df_a['Item'].tolist()
+    sku_options = ["Total Aggregate (Semua Device)", "Tampilkan Semua Device"] + df_a['Item'].tolist()
     
     with col_filter1:
         selected_sku = st.selectbox("1️⃣ Pilih SKU / View:", sku_options, key="sku_selector")
