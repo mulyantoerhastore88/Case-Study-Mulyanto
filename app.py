@@ -239,7 +239,7 @@ with tab1:
         | Item | Pola Data | Metode | Rationale | Visual Pattern |
         |---|---|---|---|---|
         | **Device A** | Stabil (4.700 - 5.400 unit) | **Moving Average** | Tidak ada trend signifikan, pola flat sepanjang tahun | 📊 ▬▬ |
-        | **Device B** | **Spike di Apr-Mei** (6.200 / 5.800)<br>Normal: 2.800 - 3.300 | **Seasonal Method** | 🔴 **Pattern: Lonjakan saat Lebaran**<br>• April-Mei 2024: +100% dari normal<br>• Data dinormalisasi untuk forecast | 📈 📊 📈 |
+        | **Device B** | **Spike di Apr-Mei** (6.200 / 5.800)<br>Normal: 2.800 - 3.300 | **Seasonal Method** | 🔴 **Asumsi Pattern: Lonjakan saat Lebaran**<br>• April-Mei 2024: +100% dari normal<br>• Data dinormalisasi untuk forecast | 📈 📊 📈 |
         | **Device C** | **Naik Konsisten** (900 → 3.100) | **Linear Trend** | • R² = 0.92 (korelasi kuat)<br>• Growth 200 unit/bulan<br>• Produk dalam fase growth | 📈 ↗️ ↗️ |
         """, unsafe_allow_html=True)
             
