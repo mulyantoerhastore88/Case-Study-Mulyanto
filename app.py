@@ -569,7 +569,7 @@ with tab2:
         st.markdown("---")
         
         # --- TAMPILAN BLOK 2: DEVICE Z DETAIL ---
-        st.markdown("### 📱 Device Z - Detailed Analysis")
+        st.markdown("### 💰 Device Z - Detailed Analysis")
         col_z_detail1, col_z_detail2, col_z_detail3 = st.columns(3)
         
         z_data = df_z.iloc[0]
