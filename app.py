@@ -692,7 +692,7 @@ with tab2:
 # TAB 3: S&OP RESTRUCTURE DESIGN (100% TERKONEKSI GSHEET) - GAUGE DIPERBAIKI
 # ==========================================
 with tab3:
-    st.markdown("### ⚙️ S&OP Governance & Cycle Restructure")
+    st.markdown("### ⚙️ PART C - S&OP Governance & Cycle Restructure")
     
     if not data_c:
         st.error("⚠️ Data Part C gagal dimuat. Pastikan worksheet bernama 'Part_C_S&OP'.")
