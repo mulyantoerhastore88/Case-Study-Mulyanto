@@ -764,7 +764,7 @@ with tab2:
             **✅ T-0 Months: Zero Stock Target**
             * Target *stock cover* maksimal < 0.5 bulan saat produk baru *launching*.
             * Wajib *escalate* ke level Manajemen jika target likuidasi ini gagal.
-            * Lakukan *Post-Mortem review* untuk perbaikan sistem di *next cycle*.
+            * Lakukan *After Action Review (AAR)* untuk perbaikan sistem di *next cycle*.
             """)
 
         # --- KODE TAMBAHAN: CONTINGENCY PLAN ---
