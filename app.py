@@ -454,8 +454,8 @@ with tab1:
             wh_utilization = st.progress(85, text="WH Utilization: 85% (51,000 / 60,000 units)")
             st.caption("Sisa kapasitas aman untuk batch ini: **4,000 units**")
 
-    # Tarik data eksekusi (TAMBAHAN SCENARIO 'Unit Cost' UNTUK KALKULASI DINAMIS)
-    order_cols = ['Item', 'Current Stock', 'DOS (Days)', 'M1', 'Suggested Order Qty', 'Air Urgent Qty', 'Sea Qty', 'Route (Sea/Air)', 'Unit Cost']
+    # Tarik data eksekusi (TAMBAHAN SCENARIO 'Unit Cost' & 'Priority Rank')
+    order_cols = ['Priority Rank', 'Item', 'Current Stock', 'DOS (Days)', 'M1', 'Suggested Order Qty', 'Air Urgent Qty', 'Sea Qty', 'Route (Sea/Air)', 'Unit Cost']
     
     if all(c in df_a.columns for c in order_cols):
         display_order = df_a[order_cols].copy()
@@ -474,8 +474,9 @@ with tab1:
         display_order = display_order.drop(columns=['Unit Cost'])
         # -----------------------------------------------------------
         
-        # Rename persis seperti gambar
+        # Rename persis seperti gambar + Kolom Priority
         display_order.rename(columns={
+            'Priority Rank': 'Priority',
             'DOS (Days)': 'DOS',
             'Suggested Order Qty': 'Order_Qty',
             'Air Urgent Qty': 'Air_Qty',
@@ -483,7 +484,7 @@ with tab1:
             'Route (Sea/Air)': 'Route'
         }, inplace=True)
         
-        # Logika modifikasi teks 'Route' agar berikon dan detail seperti di gambar
+        # Logika modifikasi teks 'Route' agar berikon dan detail
         display_order['Route'] = display_order.apply(
             lambda row: f"✈️ SPLIT: {row['Air_Qty']:,.0f} Air + {row['Sea_Qty']:,.0f} Sea" if "SPLIT" in str(row['Route']).upper() 
             else ("🚢 SEA" if "SEA" in str(row['Route']).upper() 
@@ -497,7 +498,11 @@ with tab1:
         # Format angka string agar rapi
         for col in ['Current Stock', 'DOS', 'M1', 'Order_Qty', 'Air_Qty', 'Sea_Qty']:
             display_order[col] = display_order[col].apply(lambda x: f"{x:,.0f}")
+            
         display_order['Total_Cost'] = display_order['Total_Cost'].apply(lambda x: f"Rp {x:,.0f}" if x > 0 else "Rp 0")
+        
+        # Format Priority agar terlihat keren (Contoh: ⭐ P1, ⭐ P2)
+        display_order['Priority'] = display_order['Priority'].apply(lambda x: f"⭐ P{float(x):.0f}")
         
         st.dataframe(display_order, use_container_width=True, hide_index=True)
         
