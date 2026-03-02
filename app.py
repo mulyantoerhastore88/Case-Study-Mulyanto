@@ -738,12 +738,34 @@ with tab2:
             elif margin_after_discount >= 0: st.warning(f"⚠️ Margin sangat tipis ({margin_after_discount:.1f}%)")
             else: st.error(f"🔴 Jual Rugi / Negatif Margin ({margin_after_discount:.1f}%)")
 
-        st.markdown("#### 🛡️ Proposed Portfolio Clean-up Governance")
-        st.info("SOP untuk mencegah kejadian Overstock Device Z terulang di masa depan.")
-        st.markdown("""
-        * **Phase-Out Trigger (T-4 Months):** Segala bentuk aktivitas *Import / Procurement* untuk produk lama wajib dihentikan **4 bulan** sebelum peluncuran product pengganti.
-        * **Auto-Clearance Mandate (T-2 Months):** Jika H-60 hari produk lama masih memiliki stok >2 bulan, tim *Marketing* diizinkan mengeksekusi *Bundling Promo* otomatis tanpa eskalasi berlapis.
-        """)
+        st.markdown("#### 🛡️ Portfolio Clean-up Governance")
+        st.info("💡 **Standardized SOP untuk mencegah *Dead Stock / Overstock* terulang di masa depan:**")
+        
+        col_gov1, col_gov2, col_gov3 = st.columns(3)
+        
+        with col_gov1:
+            st.markdown("""
+            **🗓️ T-4 Months: Phase-Out Trigger**
+            * Stop semua aktivitas *procurement / import* untuk produk yang *nearing end-of-life*.
+            * Lakukan *review* komprehensif antara sisa *actual stock* vs *forecast*.
+            * Tetapkan *liquidation target* untuk sisa *inventory* tersebut.
+            """)
+            
+        with col_gov2:
+            st.markdown("""
+            **📊 T-2 Months: Auto-Clearance Mandate**
+            * Ter-*trigger* otomatis jika sisa *stock cover* masih > 2 bulan.
+            * Tim Marketing diberikan *full authorization* untuk langsung eksekusi promo.
+            * *No escalation needed* (bebas birokrasi) untuk pemberian diskon hingga 25%.
+            """)
+            
+        with col_gov3:
+            st.markdown("""
+            **✅ T-0 Months: Zero Stock Target**
+            * Target *stock cover* maksimal < 0.5 bulan saat produk baru *launching*.
+            * Wajib *escalate* ke level Manajemen jika target likuidasi ini gagal.
+            * Lakukan *Post-Mortem review* untuk perbaikan sistem di *next cycle*.
+            """)
 
         # --- KODE TAMBAHAN: CONTINGENCY PLAN ---
         st.markdown("---")
