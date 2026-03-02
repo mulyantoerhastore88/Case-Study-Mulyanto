@@ -430,7 +430,7 @@ with tab1:
             lambda row: f"✈️ SPLIT: {row['Air_Qty']:,.0f} Air + {row['Sea_Qty']:,.0f} Sea" if "SPLIT" in str(row['Route']).upper() 
             else ("🚢 SEA" if "SEA" in str(row['Route']).upper() 
             else ("✈️ AIR" if "AIR" in str(row['Route']).upper() 
-            else "⏸️ TUNDA")), axis=1
+            else "⏸️ Hold PO")), axis=1
         )
         
         # Simpan nilai total cost asli (numeric) sebelum diubah jadi string teks Rp.
@@ -455,7 +455,7 @@ with tab1:
             st.metric("🏭 Cumulative WH Impact (Air Only)", f"{total_wh_impact:,.0f} units", delta=f"Sisa Gudang: 4,000", delta_color="normal" if total_wh_impact <= 4000 else "inverse")
             
         if total_cost_miliar > 4.0 or total_wh_impact > 4000:
-            st.error("🚨 **OVER CONSTRAINT!** Cek GSheet kolom Priority Rank. Tunda item non-prioritas!")
+            st.error("🚨 **OVER CONSTRAINT!** Cek GSheet kolom Priority Rank. Hold PO item non-prioritas!")
         else:
             st.success("✅ **APPROVED:** Eksekusi Order berada di bawah limit Kas dan Gudang.")
         # --------------------------------------------------
