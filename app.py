@@ -599,6 +599,7 @@ else:
 tabs = st.tabs(tab_names)
 
 # ==================== TAB 1: PART A ====================
+# Perbaikan untuk bagian pembuatan chart di TAB 1
 with tabs[0]:
     st.markdown("## 📈 PART A: 6-Month Forecast & Replenishment Plan")
     
@@ -637,12 +638,18 @@ with tabs[0]:
             hist_data = df_hist[device_choice].values
             ai_forecast = calculate_ai_forecast(hist_data)
             
-            # Create comparison chart
+            # Create comparison chart - PERBAIKAN: Pastikan panjang data sama
             months = list(df_hist['Month']) + [f'M{i}' for i in range(1,7)]
+            
+            # Actual data: 12 months historical + None untuk 6 bulan forecast
             actual_data = list(hist_data) + [None]*6
+            
+            # AI Forecast: None untuk 12 bulan historical + 6 bulan forecast
             ai_data = [None]*12 + ai_forecast
-            manual_data = [None]*12 + list(df_forecast[df_forecast['Item']==device_choice]
-                                          [['M1','M2','M3','M4','M5','M6']].values[0])
+            
+            # Manual Forecast: None untuk 12 bulan historical + 6 bulan forecast
+            manual_vals = df_forecast[df_forecast['Item']==device_choice][['M1','M2','M3','M4','M5','M6']].values[0]
+            manual_data = [None]*12 + list(manual_vals)
             
             df_compare = pd.DataFrame({
                 'Month': months,
@@ -660,12 +667,17 @@ with tabs[0]:
         with col_ai2:
             st.markdown("### 📊 Forecast Accuracy Comparison")
             
-            # Calculate accuracy
-            mape_ai = np.mean([abs(ai_forecast[i] - manual_data[12+i])/manual_data[12+i] 
-                              for i in range(6)]) * 100
+            # Calculate accuracy - PERBAIKAN: Handling None values
+            manual_vals = df_forecast[df_forecast['Item']==device_choice][['M1','M2','M3','M4','M5','M6']].values[0]
+            valid_indices = [i for i in range(6) if manual_vals[i] > 0 and ai_forecast[i] > 0]
             
-            st.metric("AI Model Confidence", f"{100-mape_ai:.1f}%", 
-                     f"{'Better' if mape_ai < 15 else 'Similar'}")
+            if valid_indices:
+                mape_ai = np.mean([abs(ai_forecast[i] - manual_vals[i])/manual_vals[i] 
+                                  for i in valid_indices]) * 100
+                st.metric("AI Model Confidence", f"{100-mape_ai:.1f}%", 
+                         f"{'Better' if mape_ai < 15 else 'Similar'}")
+            else:
+                st.metric("AI Model Confidence", "N/A", "Insufficient data")
             
             st.markdown("**Key Insights:**")
             if device_choice == 'Device C':
@@ -684,7 +696,7 @@ with tabs[0]:
         display_forecast[col] = display_forecast[col].apply(lambda x: f"{x:,.0f}")
     st.dataframe(display_forecast, use_container_width=True, hide_index=True)
     
-    # Interactive Timeline Chart
+    # Interactive Timeline Chart - PERBAIKAN BAGIAN INI
     st.markdown("### 📈 Full Timeline: Historical + Forecast")
     
     col_f1, col_f2 = st.columns(2)
@@ -695,10 +707,9 @@ with tabs[0]:
             selected_sku = st.selectbox("Select SKU", ['Device A', 'Device B', 'Device C'])
         scenario = st.selectbox("Scenario", ["Base", "Aggressive (+20%)", "Downside (-20%)"], key="scenario1")
     
-    # Create timeline chart
+    # Create timeline chart - PERBAIKAN DENGAN MEMASTIKAN PANJANG DATA SAMA
     hist_months = df_hist['Month'].tolist()
     fcst_months = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6']
-    all_months = hist_months + fcst_months
     
     if view_type == "Individual SKU":
         hist_vals = df_hist[selected_sku].tolist()
@@ -709,15 +720,29 @@ with tabs[0]:
         elif scenario == "Downside (-20%)":
             fcst_vals = [v * 0.8 for v in fcst_vals]
         
-        df_plot = pd.DataFrame({
-            'Month': all_months,
-            'Demand': hist_vals + fcst_vals,
-            'Type': ['Historical']*12 + ['Forecast']*6
+        # Buat dataframe dengan pemisah yang jelas antara historical dan forecast
+        df_hist_plot = pd.DataFrame({
+            'Month': hist_months,
+            'Demand': hist_vals,
+            'Type': 'Historical'
         })
+        
+        df_fcst_plot = pd.DataFrame({
+            'Month': fcst_months,
+            'Demand': fcst_vals,
+            'Type': 'Forecast'
+        })
+        
+        df_plot = pd.concat([df_hist_plot, df_fcst_plot], ignore_index=True)
         
         fig = px.line(df_plot, x='Month', y='Demand', color='Type',
                      title=f'{selected_sku} - {scenario} Scenario',
                      markers=True, color_discrete_map={'Historical':'#64748b', 'Forecast':'#3b82f6'})
+        
+        # Tambahkan vertical line untuk memisahkan
+        fig.add_vline(x=len(hist_months)-0.5, line_width=2, line_dash="dash", line_color="gray")
+        fig.add_annotation(x=len(hist_months)-0.5, y=1.05, yref='paper', 
+                          text="Forecast Start", showarrow=False)
     
     elif view_type == "Aggregate":
         hist_vals = df_hist[['Device A','Device B','Device C']].sum(axis=1).tolist()
@@ -728,15 +753,27 @@ with tabs[0]:
         elif scenario == "Downside (-20%)":
             fcst_vals = [v * 0.8 for v in fcst_vals]
         
-        df_plot = pd.DataFrame({
-            'Month': all_months,
-            'Demand': hist_vals + fcst_vals,
-            'Type': ['Historical']*12 + ['Forecast']*6
+        df_hist_plot = pd.DataFrame({
+            'Month': hist_months,
+            'Demand': hist_vals,
+            'Type': 'Historical'
         })
+        
+        df_fcst_plot = pd.DataFrame({
+            'Month': fcst_months,
+            'Demand': fcst_vals,
+            'Type': 'Forecast'
+        })
+        
+        df_plot = pd.concat([df_hist_plot, df_fcst_plot], ignore_index=True)
         
         fig = px.line(df_plot, x='Month', y='Demand', color='Type',
                      title=f'Total Aggregate Demand - {scenario} Scenario',
                      markers=True)
+        
+        fig.add_vline(x=len(hist_months)-0.5, line_width=2, line_dash="dash", line_color="gray")
+        fig.add_annotation(x=len(hist_months)-0.5, y=1.05, yref='paper', 
+                          text="Forecast Start", showarrow=False)
     
     else:  # Comparison
         fig = go.Figure()
@@ -750,15 +787,24 @@ with tabs[0]:
             elif scenario == "Downside (-20%)":
                 fcst_vals = [v * 0.8 for v in fcst_vals]
             
-            fig.add_trace(go.Scatter(x=all_months, y=hist_vals + fcst_vals,
-                                     mode='lines+markers', name=device))
+            # Gabungkan dengan None untuk memisahkan visual
+            all_vals = hist_vals + fcst_vals
+            all_months = hist_months + fcst_months
+            
+            fig.add_trace(go.Scatter(
+                x=all_months, 
+                y=all_vals,
+                mode='lines+markers', 
+                name=device,
+                line=dict(width=2)
+            ))
         
+        fig.add_vline(x=len(hist_months)-0.5, line_width=2, line_dash="dash", line_color="gray")
+        fig.add_annotation(x=len(hist_months)-0.5, y=1.05, yref='paper', 
+                          text="Forecast Start", showarrow=False)
         fig.update_layout(title=f'Device Comparison - {scenario} Scenario')
     
-    fig.add_vline(x=11.5, line_width=2, line_dash="dash", line_color="gray")
-    fig.add_annotation(x=11.5, y=1.05, yref='paper', text="Forecast Start", showarrow=False)
     fig.update_layout(height=450, hovermode='x unified')
-    
     st.plotly_chart(fig, use_container_width=True)
     
     # Stock Cover & Inventory Exposure
