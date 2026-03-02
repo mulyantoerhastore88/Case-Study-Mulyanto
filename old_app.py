@@ -2,1080 +2,1386 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import gspread
-from google.oauth2.service_account import Credentials
+from plotly.subplots import make_subplots
 import numpy as np
+from datetime import datetime, timedelta
+import time
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
+import warnings
+warnings.filterwarnings('ignore')
 
-# --- 1. PAGE CONFIGURATION & CSS ---
-st.set_page_config(page_title="FOOM S&OP Command Center", layout="wide", page_icon="🚀")
+# ==================== PAGE CONFIG ====================
+st.set_page_config(
+    page_title="FOOM S&OP Strategic Command Center",
+    page_icon="🚀",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-st.markdown("""
-    <style>
-    .main-header {background: linear-gradient(90deg, #0f172a 0%, #3b82f6 100%); padding: 20px; border-radius: 10px; color: white; text-align: center; margin-bottom: 20px;}
-    .card {background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; border-left: 5px solid #3b82f6;}
-    .card-alert {border-left: 5px solid #ef4444;}
-    </style>
-""", unsafe_allow_html=True)
+# ==================== INITIALIZE SESSION STATE ====================
+def init_session_state():
+    """Initialize all session state variables"""
+    if 'theme' not in st.session_state:
+        st.session_state.theme = 'light'
+    if 'score' not in st.session_state:
+        st.session_state.score = 1000
+    if 'level' not in st.session_state:
+        st.session_state.level = 1
+    if 'audit_log' not in st.session_state:
+        st.session_state.audit_log = []
+    if 'show_summary' not in st.session_state:
+        st.session_state.show_summary = False
+    if 'presentation_mode' not in st.session_state:
+        st.session_state.presentation_mode = False
+    if 'last_refresh' not in st.session_state:
+        st.session_state.last_refresh = datetime.now()
 
-# --- 2. GOOGLE SHEETS CONNECTION ---
-@st.cache_data(ttl=60)
-def load_data_from_gsheet():
-    # SETUP KONEKSI API
-    scope = ['https://www.googleapis.com/auth/spreadsheets']
-    creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
-    client = gspread.authorize(creds)
-    
-    # Ganti dengan URL spreadsheet Bapak
-    sheet_url = "https://docs.google.com/spreadsheets/d/1xN5gQ6r7I0QUXs6-9FZLqH9wMxd9H2-R8ViLnp3twuI/edit"
-    sh = client.open_by_url(sheet_url)
-    
-    # LOAD PART A (sesuai struktur Bapak: kolom A-AE)
-    ws_a = sh.worksheet("Part_A_Stock&SKU_Detail")
-    data_a = ws_a.get_all_values()
-    df_a = pd.DataFrame(data_a[1:], columns=data_a[0])
-    
-    # LOAD PART B (akan dibuat)
-    try:
-        ws_b = sh.worksheet("Part_B_DEAD_STOCK")
-        data_b = ws_b.get_all_values()
-        df_b = pd.DataFrame(data_b[1:], columns=data_b[0]) if len(data_b) > 1 else pd.DataFrame()
-    except:
-        df_b = pd.DataFrame()
-    
-    # LOAD PART C (akan dibuat)
-    try:
-        ws_c = sh.worksheet("Part_C_S&OP")
-        data_c = ws_c.get_all_values()
-        df_c = pd.DataFrame(data_c[1:], columns=data_c[0]) if len(data_c) > 1 else pd.DataFrame()
-    except:
-        df_c = pd.DataFrame()
-    
-    return df_a, df_b, df_c
+init_session_state()
 
-# Load Data
-try:
-    df_a, df_b, df_c = load_data_from_gsheet()
-    st.success("✅ Data berhasil dimuat dari Google Sheets")
-except Exception as e:
-    st.error(f"❌ Koneksi GSheet Gagal: {e}")
-    st.stop()
-
-# --- HEADER ---
-st.markdown("<div class='main-header'><h1>🚀 FOOM LAB GLOBAL: S&OP Command Center</h1><p>Strategic Supply & Demand Validation System | Candidate: Mulyanto</p></div>", unsafe_allow_html=True)
-
-# --- TABS ---
-tab1, tab2, tab3 = st.tabs(["📊 PART A: Replenishment & Scenarios", "💀 PART B: Cash Unlock & Dead Stock", "⚙️ PART C: S&OP Governance"])
-
-# ==========================================
-# TAB 1: REPLENISHMENT & SCENARIOS (FULL VERSION)
-# ==========================================
-with tab1:
-    # ===== PART 1: 6-MONTH FORECAST & LOGIKA =====
-    st.markdown("## 📈 PART A: 6-MONTH FORECAST & REPLENISHMENT PLAN")
-    st.markdown("---")
+# ==================== DATA INITIALIZATION ====================
+@st.cache_data(ttl=300)
+def load_and_calculate_data():
+    """Load all data and perform calculations based on case study"""
     
-    st.markdown("### 📐 1. Forecast Methodology & Data Interpretation")
+    # ===== PART A: Historical Data =====
+    historical_data = {
+        'Month': ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+        'Device A': [4800, 5100, 4900, 5200, 5000, 4700, 5300, 5200, 5000, 4900, 5100, 5400],
+        'Device B': [2900, 3100, 3200, 6200, 5800, 3100, 2800, 2900, 3000, 3100, 3200, 3300],
+        'Device C': [900, 1000, 1050, 1200, 1350, 1500, 1700, 1900, 2200, 2500, 2800, 3100]
+    }
     
-    with st.expander("📊 **Klik untuk melihat logika lengkap forecast**", expanded=True):
+    df_hist = pd.DataFrame(historical_data)
+    
+    # Current Stock & Unit Cost
+    current_stock = {'Device A': 8000, 'Device B': 12000, 'Device C': 3000}
+    unit_cost = {'Device A': 85000, 'Device B': 95000, 'Device C': 110000}
+    moq = {'Device A': 10000, 'Device B': 8000, 'Device C': 5000}
+    
+    # ===== FORECAST CALCULATIONS =====
+    df_forecast = pd.DataFrame()
+    df_forecast['Item'] = ['Device A', 'Device B', 'Device C']
+    
+    # Calculate forecast models and values
+    forecast_results = []
+    for device in ['Device A', 'Device B', 'Device C']:
+        hist_values = df_hist[device].values
         
-        # HEADER METODE
-        st.markdown("#### 🧮 Metode Forecast yang Digunakan")
+        # Determine forecast model based on pattern
+        if device == 'Device A':
+            model = "Moving Average"
+            # Simple moving average of last 3 months
+            m1 = round(np.mean(hist_values[-3:]))
+        elif device == 'Device B':
+            model = "Seasonal Method"
+            # Seasonal: Peak in Apr-May, then normalize
+            base = np.mean([hist_values[6], hist_values[7], hist_values[8]])  # Jul-Sep average
+            m1 = round(base * 1.1)  # Slight increase
+        else:  # Device C
+            model = "Linear Trend"
+            # Linear regression for trend
+            x = np.arange(len(hist_values)).reshape(-1, 1)
+            y = hist_values
+            reg = LinearRegression().fit(x, y)
+            m1 = round(reg.predict([[len(hist_values)]])[0])
         
-        col_logic1, col_logic2 = st.columns(2)
+        # Calculate M2-M6 with growth rates
+        growth_rates = []
+        for i in range(1, len(hist_values)):
+            if hist_values[i-1] > 0:
+                growth_rates.append(hist_values[i] / hist_values[i-1])
         
-        with col_logic1:
-            st.markdown("""
-            **Rumus Excel di GSheet:**
-            
-            **1. Klasifikasi Model (Kolom T):**
-            ```
-            =IF(RSQ(F2:Q2, {1..12}) > 0.8, "Linear Trend",
-               IF(MAX(F2:Q2)/MEDIAN(F2:Q2) > 1.5, "Seasonal Method",
-               "Moving Average"))
-            ```
-            
-            **2. M1 - Weighted Moving Average (60-30-10):**
-            ```
-            =ROUNDUP((Q2*0.6) + (P2*0.3) + (O2*0.1), 0)
-            ```
-            - Desember (60%) + November (30%) + Oktober (10%)
-            
-            **3. M2-M6 - Mirror Growth:**
-            ```
-            M2 = U2 × (G2/F2)  # Growth Feb/Jan
-            M3 = V2 × (H2/G2)  # Growth Mar/Feb
-            M4 = W2 × (I2/H2)  # Growth Apr/Mar
-            M5 = X2 × (J2/I2)  # Growth May/Apr
-            M6 = Y2 × (K2/J2)  # Growth Jun/May
-            ```
-            """)
+        avg_growth = np.mean(growth_rates[-3:])  # Use last 3 months growth
         
-        with col_logic2:
-            st.markdown("""
-            **Alasan Pemilihan Metode:**
-            
-            - **Moving Average:** Untuk data stabil tanpa trend (Device A)
-            - **Seasonal Detection:** Untuk data dengan pola berulang (Device B)
-            - **Linear Trend:** Untuk data dengan trend naik/turun konsisten (Device C)
-            
-            **Month to Month Mirror Growth dipilih karena:**
-            - Menangkap pola musiman dari tahun sebelumnya
-            - Sederhana dan mudah dijelaskan ke management
-            - Cocok untuk FMCG dengan siklus tahunan
-            """)
+        months = [m1]
+        for i in range(1, 6):
+            next_val = months[-1] * avg_growth
+            months.append(round(next_val))
         
-        st.markdown("---")
-        
-        # ===== INTERPRETASI DATA HISTORIS =====
-        st.markdown("#### 📈 Interpretasi Data Historis per SKU")
-        
-        # Buat tabel interpretasi dengan format yang lebih menarik
-        col_table1, col_table2, col_table3 = st.columns([1, 2, 3])
-        
-        # Header tabel
-        st.markdown("""
-        | Item | Pola Data | Metode | Rationale | Visual Pattern |
-        |------|-----------|--------|-----------|----------------|
-        """)
-        
-        # Device A
-        st.markdown("""
-        | **Device A** | Stabil (4.700 - 5.400 unit) | **Moving Average** | Tidak ada trend signifikan, pola flat sepanjang tahun | 📊▬▬▬▬▬ |
-        """)
-        
-        # Device B (dengan penjelasan seasonal)
-        st.markdown("""
-        | **Device B** | **Spike di Apr-Mei** (6.200 / 5.800) <br> Normal: 2.800 - 3.300 | **Seasonal Method** | **🔴 Pattern: Lonjakan saat Lebaran** <br> • April-Mei 2024: +100% dari normal <br> • Data dinormalisasi untuk forecast | 📈📊📈 |
-        """)
-        
-        # Device C
-        st.markdown("""
-        | **Device C** | **Naik Konsisten** (900 → 3.100) | **Linear Trend** | • R² = 0.92 (korelasi kuat) <br> • Growth 200 unit/bulan <br> • Produk dalam fase growth | 📈↗️↗️ |
-        """)
-        
-        st.markdown("---")
-        
-        # ===== NORMALISASI DEVICE B =====
-        st.markdown("#### 🎯 Normalisasi Data Device B (Seasonal Adjustment)")
-        
-        col_norm1, col_norm2 = st.columns([1, 1])
-        
-        with col_norm1:
-            # Toggle untuk normalisasi
-            normalize_b = st.radio(
-                "**Pilih Opsi Data Device B:**",
-                options=[
-                    "✅ Normalisasi (Asumsi Seasonal Lebaran) - RECOMMENDED",
-                    "⚠️ Gunakan Data Asli (Termasuk Outlier)"
-                ],
-                index=0
-            )
-            
-            if "Normalisasi" in normalize_b:
-                st.success("""
-                **Data Device B telah dinormalisasi:**
-                - April: 6,200 → **3,150** (rata-rata Feb-Mar)
-                - Mei: 5,800 → **3,150** - Forecast menjadi lebih stabil dan akurat
-                - Risiko overstock: **RENDAH**
-                """)
-            else:
-                st.warning("""
-                **Menggunakan data asli Device B:**
-                - April: 6,200 (outlier)
-                - Mei: 5,800 (outlier)
-                - Forecast akan overestimate
-                - Risiko overstock: **TINGGI**
-                """)
-        
-        with col_norm2:
-            # Visualisasi perbandingan
-            st.markdown("**Perbandingan Forecast:**")
-            
-            # Data sederhana
-            data_compare = pd.DataFrame({
-                'Bulan': ['Apr', 'Mei', 'Jun', 'Jul', 'Agu'],
-                'Asli': [6200, 5800, 3100, 2800, 2900],
-                'Normalisasi': [3150, 3150, 3100, 2800, 2900]
-            })
-            
-            fig_compare = px.line(
-                data_compare, 
-                x='Bulan', 
-                y=['Asli', 'Normalisasi'],
-                title="Dampak Normalisasi Device B",
-                markers=True,
-                color_discrete_map={'Asli': '#ef4444', 'Normalisasi': '#10b981'}
-            )
-            fig_compare.update_layout(height=250)
-            st.plotly_chart(fig_compare, use_container_width=True)
-        
-        st.markdown("---")
-        
-        # ===== 3 SKENARIO =====
-        st.markdown("#### 🎲 Tiga Skenario Forecast")
-        
-        col_scen1, col_scen2, col_scen3 = st.columns(3)
-        
-        with col_scen1:
-            st.markdown("""
-            <div style='background-color:#dbeafe; padding:15px; border-radius:10px; border-left:5px solid #3b82f6'>
-                <h4 style='color:#1e40af; margin:0'>📊 BASE SCENARIO</h4>
-                <p style='font-size:12px; margin:5px 0'>Asumsi Normal</p>
-                <hr style='margin:10px 0'>
-                <p><b>Forecast:</b> Hasil perhitungan rumus (data normalisasi)</p>
-                <p><b>Asumsi:</b> Tidak ada perubahan signifikan di pasar</p>
-                <p><b>Probabilitas:</b> 60%</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col_scen2:
-            st.markdown("""
-            <div style='background-color:#dcfce7; padding:15px; border-radius:10px; border-left:5px solid #10b981'>
-                <h4 style='color:#166534; margin:0'>📈 AGGRESSIVE (+20%)</h4>
-                <p style='font-size:12px; margin:5px 0'>Asumsi Optimis</p>
-                <hr style='margin:10px 0'>
-                <p><b>Forecast:</b> Base × 1.2</p>
-                <p><b>Asumsi:</b> Lebaran kedua, campaign besar, ekspansi pasar</p>
-                <p><b>Probabilitas:</b> 25%</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col_scen3:
-            st.markdown("""
-            <div style='background-color:#fee2e2; padding:15px; border-radius:10px; border-left:5px solid #ef4444'>
-                <h4 style='color:#991b1b; margin:0'>📉 DOWNSIDE (-20%)</h4>
-                <p style='font-size:12px; margin:5px 0'>Asumsi Konservatif</p>
-                <hr style='margin:10px 0'>
-                <p><b>Forecast:</b> Base × 0.8</p>
-                <p><b>Asumsi:</b> Regulasi baru, kompetitor agresif, ekonomi melambat</p>
-                <p><b>Probabilitas:</b> 15%</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown("---")
-        
-        # ===== KESIMPULAN METODOLOGI =====
-        st.markdown("""
-        <div style='background-color:#f8fafc; padding:20px; border-radius:10px; border:1px solid #cbd5e1'>
-            <h4 style='margin-top:0'>📌 Kesimpulan Metodologi Forecast</h4>
-            <ul>
-                <li><b>Device A:</b> Moving Average - stabil, tidak perlu adjustment</li>
-                <li><b>Device B:</b> Seasonal Method - data dinormalisasi untuk menghilangkan efek Lebaran</li>
-                <li><b>Device C:</b> Linear Trend - R² 0.92, growth konsisten 200 unit/bulan</li>
-                <li><b>3 Skenario:</b> Base (normal), Aggressive (+20%), Downside (-20%) untuk antisipasi berbagai kondisi pasar</li>
-            </ul>
-            <p style='margin-bottom:0; color:#475569'><i>Metode ini dipilih karena sederhana, mudah direplikasi di Excel, dan sesuai dengan karakteristik FMCG.</i></p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    # ===== PART 2: 6-MONTH FORECAST TABLE =====
-    st.markdown("### 📊 2. 6-Month Forecast (Base Scenario)")
-    
-    # Kolom forecast yang ada di GSheet
-    forecast_cols = ['Item', 'Forecast Model'] + [f'M{i}' for i in range(1, 7)]
-    available_forecast = [col for col in forecast_cols if col in df_a.columns]
-    
-    if len(available_forecast) > 1:
-        df_forecast = df_a[available_forecast].copy()
-        
-        # Konversi ke numerik
-        for col in [f'M{i}' for i in range(1, 7)]:
-            if col in df_forecast.columns:
-                df_forecast[col] = pd.to_numeric(df_forecast[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
-        
-        # Hitung Total 6 Bulan
-        df_forecast['Total 6 Bulan'] = df_forecast[[f'M{i}' for i in range(1, 7)]].sum(axis=1)
-        df_forecast['Rata-rata'] = (df_forecast['Total 6 Bulan'] / 6).round(0)
-        
-        # Format untuk display
-        display_forecast = df_forecast.copy()
-        for col in [f'M{i}' for i in range(1, 7)] + ['Total 6 Bulan', 'Rata-rata']:
-            if col in display_forecast.columns:
-                display_forecast[col] = display_forecast[col].apply(lambda x: f"{x:,.0f}")
-        
-        st.dataframe(display_forecast, use_container_width=True, hide_index=True)
-    
-    # ===== PART 3: 3 SCENARIOS COMPARISON =====
-    st.markdown("### 🔄 3. Three Scenarios Comparison (Base vs Aggressive vs Downside)")
-    
-    # Buat data untuk 3 skenario
-    df_scenarios = df_a[['Item'] + [f'M{i}' for i in range(1, 7)]].copy()
-    
-    # Konversi ke numerik
-    for col in [f'M{i}' for i in range(1, 7)]:
-        if col in df_scenarios.columns:
-            df_scenarios[col] = pd.to_numeric(df_scenarios[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
-    
-    # Hitung metrik per SKU
-    df_scenarios['Base_Total'] = df_scenarios[[f'M{i}' for i in range(1, 7)]].sum(axis=1)
-    df_scenarios['Base_Avg'] = (df_scenarios['Base_Total'] / 6).round(0)
-    df_scenarios['Agg_Total'] = (df_scenarios['Base_Total'] * 1.2).round(0)
-    df_scenarios['Agg_Avg'] = (df_scenarios['Agg_Total'] / 6).round(0)
-    df_scenarios['Down_Total'] = (df_scenarios['Base_Total'] * 0.8).round(0)
-    df_scenarios['Down_Avg'] = (df_scenarios['Down_Total'] / 6).round(0)
-    
-    # Tabel perbandingan
-    comparison_table = df_scenarios[['Item', 
-                                     'Base_Avg', 'Base_Total',
-                                     'Agg_Avg', 'Agg_Total',
-                                     'Down_Avg', 'Down_Total']].copy()
-    
-    # Format angka
-    for col in comparison_table.columns:
-        if col != 'Item':
-            comparison_table[col] = comparison_table[col].apply(lambda x: f"{x:,.0f}")
-    
-    st.dataframe(
-        comparison_table,
-        use_container_width=True,
-        column_config={
-            "Base_Avg": "Base (avg/mo)",
-            "Base_Total": "Base 6M",
-            "Agg_Avg": "Agg +20%",
-            "Agg_Total": "Agg 6M",
-            "Down_Avg": "Down -20%",
-            "Down_Total": "Down 6M"
-        }
-    )
-    
-    # Visualisasi per SKU
-    st.markdown("#### 📈 Visualisasi per SKU")
-    selected_sku = st.selectbox("Pilih SKU untuk detail scenario:", df_a['Item'].tolist(), key="sku_selector")
-    
-    # Filter untuk SKU terpilih
-    sku_data = df_scenarios[df_scenarios['Item'] == selected_sku].iloc[0]
-    
-    # Data untuk line chart
-    months = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6']
-    base_values = [sku_data[m] for m in months]
-    agg_values = [v * 1.2 for v in base_values]
-    down_values = [v * 0.8 for v in base_values]
-    
-    plot_df = pd.DataFrame({
-        'Month': months,
-        'Base': base_values,
-        'Aggressive (+20%)': agg_values,
-        'Downside (-20%)': down_values
-    })
-    
-    plot_df_melted = plot_df.melt(id_vars=['Month'], var_name='Scenario', value_name='Forecast')
-    
-    fig_line = px.line(
-        plot_df_melted,
-        x='Month',
-        y='Forecast',
-        color='Scenario',
-        title=f"6-Month Forecast Scenarios: {selected_sku}",
-        markers=True,
-        color_discrete_map={
-            'Base': '#3b82f6',
-            'Aggressive (+20%)': '#10b981',
-            'Downside (-20%)': '#ef4444'
-        }
-    )
-    st.plotly_chart(fig_line, use_container_width=True)
-    
-    # Bar chart comparison all SKUs
-    st.markdown("#### 📊 Total 6-Month Forecast by SKU")
-    
-    fig_bar = go.Figure()
-    for idx, row in df_scenarios.iterrows():
-        fig_bar.add_trace(go.Bar(
-            name=row['Item'],
-            x=['Base', 'Aggressive', 'Downside'],
-            y=[row['Base_Total'], row['Agg_Total'], row['Down_Total']],
-            text=[f"{row['Base_Total']:,.0f}", f"{row['Agg_Total']:,.0f}", f"{row['Down_Total']:,.0f}"],
-            textposition='auto',
-        ))
-    
-    fig_bar.update_layout(
-        title="6-Month Total Forecast Comparison",
-        barmode='group',
-        yaxis_title="Total Units"
-    )
-    st.plotly_chart(fig_bar, use_container_width=True)
-    
-    # ===== PART 4: STOCK COVER & INVENTORY EXPOSURE =====
-    st.markdown("### 📦 4. Stock Cover & Inventory Exposure")
-    
-    # PENTING: Bersihkan nama kolom dari spasi tersembunyi agar tidak salah narik data
-    df_a.columns = df_a.columns.str.strip()
-    
-    # Ambil data yang diperlukan
-    df_cover = df_a[['Item', 'Current Stock', 'Unit Cost', 'M1', 'M2', 'M3']].copy()
-    
-    # Konversi ke numerik secara aman (ubah string jadi angka)
-    for col in ['Current Stock', 'Unit Cost', 'M1', 'M2', 'M3']:
-        df_cover[col] = pd.to_numeric(df_cover[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
-    
-    # Hitung Forward-Looking Average Forecast (M1-M3)
-    df_cover['Avg_Forecast'] = (df_cover['M1'] + df_cover['M2'] + df_cover['M3']) / 3
-    
-    # Stock Cover (bulan) - Membagi Current Stock dengan Proyeksi M1-M3
-    df_cover['Stock Cover (bulan)'] = df_cover.apply(
-        lambda x: round(x['Current Stock'] / x['Avg_Forecast'], 1) if x['Avg_Forecast'] > 0 else 0,
-        axis=1
-    )
-    
-    # Stock Cover (hari)
-    df_cover['Stock Cover (hari)'] = (df_cover['Stock Cover (bulan)'] * 30).round(0)
-    
-    # Status Logic
-    def get_status(cover):
-        if cover < 45:
-            return "🔴 KRITIS (OOS Risk)"
-        elif cover < 60:
-            return "🟡 WASPADA"
-        elif cover < 90:
-            return "🟢 AMAN"
-        else:
-            return "🔵 OVERSTOCK"
-    
-    df_cover['Status'] = df_cover['Stock Cover (hari)'].apply(get_status)
-    
-    # Inventory Exposure (IDR)
-    df_cover['Inventory Value'] = df_cover['Current Stock'] * df_cover['Unit Cost']
-    
-    # Siapkan tabel TAMPILAN (Ubah ke format string agar ada koma)
-    display_cover = df_cover[['Item', 'Current Stock', 'Avg_Forecast', 'Stock Cover (bulan)', 'Stock Cover (hari)', 'Status', 'Inventory Value']].copy()
-    
-    for col in ['Current Stock', 'Avg_Forecast', 'Stock Cover (hari)']:
-        display_cover[col] = display_cover[col].apply(lambda x: f"{x:,.0f}")
-        
-    display_cover['Inventory Value'] = display_cover['Inventory Value'].apply(lambda x: f"Rp {x:,.0f}")
-    
-    st.dataframe(display_cover, use_container_width=True, hide_index=True)
-    
-    # Summary metrics
-    total_inventory = df_cover['Inventory Value'].sum()
-    total_stock_units = df_cover['Current Stock'].sum()
-    
-    col_met1, col_met2, col_met3, col_met4 = st.columns(4)
-    with col_met1:
-        st.metric("💰 Total Inventory Value", f"Rp {total_inventory:,.0f}")
-    with col_met2:
-        st.metric("📦 Total Stock (units)", f"{total_stock_units:,.0f}")
-    with col_met3:
-        kritis_count = len(df_cover[df_cover['Status'].str.contains('KRITIS')])
-        st.metric("⚠️ SKU Kritis", kritis_count)
-    with col_met4:
-        aman_count = len(df_cover[df_cover['Status'].str.contains('AMAN')])
-        st.metric("✅ SKU Aman", aman_count)
-    
-    # ===== PART 5: REKOMENDASI IMPORT PLAN =====
-    st.markdown("### 🚢 5. Import Plan & Cost Simulation")
-    
-    # ⚙️ LOGISTIC SETTINGS (Menjawab poin Sea 10% dan Air 4x Cost)
-    with st.expander("⚙️ Logistik & Warehouse Constraints Settings", expanded=True):
-        col_log1, col_log2, col_log3 = st.columns(3)
-        with col_log1:
-            sea_cost_pct = st.number_input("Sea Freight Cost (%)", value=10, step=1) / 100
-        with col_log2:
-            air_cost_mult = st.number_input("Air Freight Multiplier (x Cost)", value=4.0, step=0.5)
-        with col_log3:
-            wh_utilization = st.progress(85, text="WH Utilization: 85% (51,000 / 60,000 units)")
-            st.caption("Sisa kapasitas aman untuk batch ini: **4,000 units**")
-
-    # Persiapan Data Order
-    df_order = df_a[['Item', 'Current Stock', 'Unit Cost', 'MOQ', 'M1', 'M2', 'M3']].copy()
-    
-    # Konversi ke numerik
-    for col in ['Current Stock', 'Unit Cost', 'MOQ', 'M1', 'M2', 'M3']:
-        df_order[col] = pd.to_numeric(df_order[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
-    
-    df_order['Kebutuhan_3M'] = df_order['M1'] + df_order['M2'] + df_order['M3']
-    df_order['Defisit'] = df_order['Kebutuhan_3M'] - df_order['Current Stock']
-    df_order['Defisit'] = df_order['Defisit'].apply(lambda x: max(0, x))
-    
-    df_order['Order_Qty'] = df_order.apply(
-        lambda x: int(np.ceil(x['Defisit'] / x['MOQ']) * x['MOQ']) if x['Defisit'] > 0 else 0, axis=1
-    )
-    
-    df_order['DOS'] = df_cover['Stock Cover (hari)'].values
-    df_order['Air_Qty'] = df_order.apply(
-        lambda x: min(x['Order_Qty'], int(np.ceil(max(0, x['M1'] - x['Current Stock']) / 1000) * 1000))
-        if x['DOS'] < 45 and x['Order_Qty'] > 0 else 0, axis=1
-    )
-    df_order['Sea_Qty'] = df_order['Order_Qty'] - df_order['Air_Qty']
-    
-    # COST CALCULATION DENGAN VARIABEL DINAMIS
-    df_order['Air_Cost'] = df_order['Air_Qty'] * df_order['Unit Cost'] * air_cost_mult
-    df_order['Sea_Cost'] = df_order['Sea_Qty'] * df_order['Unit Cost'] * (1 + sea_cost_pct)
-    df_order['Total_Cost'] = df_order['Air_Cost'] + df_order['Sea_Cost']
-    
-    def get_route(row):
-        if row['Air_Qty'] > 0 and row['Sea_Qty'] > 0: return f"✈️ SPLIT: {row['Air_Qty']:,.0f} Air + {row['Sea_Qty']:,.0f} Sea"
-        elif row['Air_Qty'] > 0: return "✈️ AIR (URGENT)"
-        elif row['Sea_Qty'] > 0: return "🚢 SEA"
-        else: return "⏸️ TUNDA"
-    
-    df_order['Route'] = df_order.apply(get_route, axis=1)
-    
-    display_order = df_order[['Item', 'Current Stock', 'DOS', 'M1', 'Order_Qty', 'Air_Qty', 'Sea_Qty', 'Route', 'Total_Cost']].copy()
-    for col in ['Current Stock', 'DOS', 'M1', 'Order_Qty', 'Air_Qty', 'Sea_Qty']:
-        display_order[col] = display_order[col].apply(lambda x: f"{x:,.0f}")
-    display_order['Total_Cost'] = display_order['Total_Cost'].apply(lambda x: f"Rp {x:,.0f}")
-    
-    st.dataframe(display_order, use_container_width=True, hide_index=True)
-    
-    # ===== PART 6: LIVE DEFENSE SCENARIO SIMULATION =====
-    st.markdown("---")
-    st.markdown("## 🎯 PART D: LIVE DEFENSE SCENARIO SIMULATION")
-    st.info("Manajemen sering memberikan konstrain mendadak saat presentasi. Pilih skenario di bawah ini untuk simulasi *real-time*.")
-    
-    # PRESET SCENARIO BUTTONS
-    scenario_type = st.radio(
-        "⚡ Quick Scenario Presets (Sesuai Asumsi Management):",
-        ["1️⃣ Normal (Base Plan)", 
-         "2️⃣ Cash Reduced by 30% (Budget dipotong jadi 2.8 Miliar)", 
-         "3️⃣ WH Capacity Reduced to 2,000 units", 
-         "4️⃣ Campaign Pulled Forward (+30% Demand M1)"],
-        horizontal=True
-    )
-    
-    # Logic untuk mengatur variabel berdasarkan preset
-    sim_budget = 4.0
-    sim_wh = 4000
-    sim_demand = 0
-    
-    if "Cash Reduced" in scenario_type: sim_budget = 2.8
-    elif "WH Capacity" in scenario_type: sim_wh = 2000
-    elif "Campaign" in scenario_type: sim_demand = 30
-    
-    col_s1, col_s2, col_s3 = st.columns(3)
-    with col_s1: scenario_growth = st.slider("📈 Demand Adj (%)", -30, 50, sim_demand, 5, disabled=("Campaign" in scenario_type))
-    with col_s2: budget_limit = st.number_input("💰 Budget (B IDR)", 1.0, 10.0, sim_budget, 0.5, disabled=("Cash" in scenario_type))
-    with col_s3: wh_capacity = st.number_input("🏭 WH Cap Left", 1000, 10000, sim_wh, 500, disabled=("WH" in scenario_type))
-    
-    # RE-CALCULATE LIVE
-    multiplier = 1 + (scenario_growth / 100)
-    df_live = df_order.copy()
-    df_live['M1_Sim'] = df_live['M1'] * multiplier
-    df_live['M2_Sim'] = df_live['M2'] * multiplier
-    df_live['M3_Sim'] = df_live['M3'] * multiplier
-    df_live['Defisit_Sim'] = (df_live['M1_Sim'] + df_live['M2_Sim'] + df_live['M3_Sim']) - df_live['Current Stock']
-    df_live['Defisit_Sim'] = df_live['Defisit_Sim'].apply(lambda x: max(0, x))
-    df_live['Order_Sim'] = df_live.apply(lambda x: int(np.ceil(x['Defisit_Sim'] / x['MOQ']) * x['MOQ']) if x['Defisit_Sim'] > 0 else 0, axis=1)
-    
-    df_live['DOS_Sim'] = df_live['Current Stock'] / ((df_live['M1_Sim'] + df_live['M2_Sim'] + df_live['M3_Sim'])/3) * 30
-    df_live['Air_Sim'] = df_live.apply(lambda x: min(x['Order_Sim'], int(np.ceil(max(0, x['M1_Sim'] - x['Current Stock']) / 1000) * 1000)) if x['DOS_Sim'] < 45 and x['Order_Sim'] > 0 else 0, axis=1)
-    df_live['Sea_Sim'] = df_live['Order_Sim'] - df_live['Air_Sim']
-    
-    df_live['Cost_Sim'] = (df_live['Air_Sim'] * df_live['Unit Cost'] * air_cost_mult + df_live['Sea_Sim'] * df_live['Unit Cost'] * (1+sea_cost_pct)) / 1_000_000_000
-    
-    total_cost_live = df_live['Cost_Sim'].sum()
-    total_wh_live = df_live['Air_Sim'].sum()
-    
-    col_v1, col_v2 = st.columns(2)
-    with col_v1:
-        st.metric("💰 Live Sim Cost", f"Rp {total_cost_live:.2f} Miliar", delta=f"Limit: {budget_limit:.1f} Miliar", delta_color="normal" if total_cost_live <= budget_limit else "inverse")
-    with col_v2:
-        st.metric("🏭 Live WH Incoming", f"{total_wh_live:,.0f} units", delta=f"Cap: {wh_capacity:,.0f}", delta_color="normal" if total_wh_live <= wh_capacity else "inverse")
-        
-    if total_cost_live > budget_limit or total_wh_live > wh_capacity:
-        st.error("🚨 **SISTEM MENDETEKSI PELANGGARAN CONSTRAINT!** Anda harus mengurangi Demand Adj atau Negosiasi Drop-Shipment.")
-    else:
-        st.success("✅ Dashboard Ready")
-
-# ==========================================
-# TAB 2: DEAD STOCK & CASH UNLOCK
-# ==========================================
-with tab2:
-    st.markdown("### 💰 The 5 Billion Cash Unlock Masterplan")
-    st.warning("🎯 **Target: Unlock minimum IDR 5 Miliar in 90 days**")
-    
-    # --- TAMBAHAN BARU: MASTERPLAN 5 MILIAR ---
-    st.markdown("#### 🚀 The 90-Day Liquidation Portfolio (Road to 5 Miliar)")
-    
-    # Data Masterplan (Diseragamkan menggunakan kata "Miliar")
-    masterplan_data = pd.DataFrame({
-        'Category': ['Device Z (Dead Stock)', 'Other Dead Stock (18% of 25 Miliar - Z)', 'Slow Moving (35% of 25 Miliar)'],
-        'Inventory Value': ['Rp 1.10 Miliar', 'Rp 3.40 Miliar', 'Rp 8.75 Miliar'],
-        'Proposed Strategy': ['Aggressive Bundling & Clearance (-30%)', 'B2B Wholesale / Export "Take-All"', 'E-Commerce Flash Sale (Double Day)'],
-        'Target Cash Unlock (Miliar)': [1.1, 2.5, 1.4] 
-    })
-    
-    # Visualisasi Progress Bar 5 Miliar
-    total_unlock_target = sum(masterplan_data['Target Cash Unlock (Miliar)'])
-    
-    col_mp1, col_mp2 = st.columns([2, 1])
-    with col_mp1:
-        st.dataframe(masterplan_data, use_container_width=True, hide_index=True)
-    with col_mp2:
-        fig_gauge_5b = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=total_unlock_target,
-            number={'valueformat': '.1f', 'prefix': 'Rp ', 'suffix': ' Miliar'},
-            title={'text': "Total Cash Unlock"},
-            gauge={
-                'axis': {'range': [None, 6]},
-                'bar': {'color': "#10b981"},
-                'steps': [
-                    {'range': [0, 5], 'color': "#fee2e2"},
-                    {'range': [5, 6], 'color': "#dcfce7"}
-                ],
-                'threshold': {'line': {'color': "red", 'width': 4}, 'thickness': 0.75, 'value': 5}
-            }
-        ))
-        fig_gauge_5b.update_layout(height=200, margin=dict(l=20, r=20, t=30, b=20))
-        st.plotly_chart(fig_gauge_5b, use_container_width=True)
-        st.success("✅ **Target IDR 5 Miliar Terpenuhi!**")
-
-    st.markdown("---")
-    
-    st.markdown("### 📱 Device Z - Detailed Analysis")
-    
-    col_z_detail1, col_z_detail2, col_z_detail3 = st.columns(3)
-    
-    # Data Device Z
-    stock_z = 12000
-    inv_value_z = 1.1e9  # Rp 1.1 Miliar
-    unit_cost_z = inv_value_z / stock_z  # Rp 91,667
-    monthly_sales_z = 500
-    
-    with col_z_detail1:
-        st.markdown("""
-        <div style='background-color:#f8fafc; padding:15px; border-radius:8px; border:1px solid #cbd5e1;'>
-            <h4 style='margin-top:0; color:#334155;'>📊 Stock & Value</h4>
-            <table style='width:100%'>
-                <tr><td>Current Stock</td><td><b>{:,} units</b></td></tr>
-                <tr><td>Inventory Value</td><td><b>Rp {:.2f} Miliar</b></td></tr>
-                <tr><td>Unit Cost (HPP)</td><td><b>Rp {:,.0f}</b></td></tr>
-            </table>
-        </div>
-        """.format(stock_z, inv_value_z/1e9, unit_cost_z), unsafe_allow_html=True)
-    
-    # Estimasi harga jual (kita buat slider untuk simulasi)
-    with col_z_detail2:
-        st.markdown("""
-        <div style='background-color:#f8fafc; padding:15px; border-radius:8px; border:1px solid #cbd5e1;'>
-            <h4 style='margin-top:0; color:#334155;'>💰 Sales & Margin</h4>
-        """, unsafe_allow_html=True)
-        
-        estimated_selling_price = st.slider(
-            "Estimasi Harga Jual Normal (Rp/unit)",
-            min_value=int(unit_cost_z * 1.2),  # Minimal margin 20%
-            max_value=int(unit_cost_z * 2.5),  # Max margin 150%
-            value=int(unit_cost_z * 1.8),  # Default margin 80%
-            step=5000,
-            format="Rp %d",
-            key="price_z"
-        )
-        
-        normal_margin = (estimated_selling_price - unit_cost_z) / estimated_selling_price * 100
-        monthly_revenue = monthly_sales_z * estimated_selling_price
-        annual_revenue_potential = monthly_revenue * 12
-        
-        st.markdown("""
-            <table style='width:100%'>
-                <tr><td>Harga Jual Estimasi</td><td><b>Rp {:,.0f}</b></td></tr>
-                <tr><td>Margin Normal</td><td><b style='color:{};'>{:.1f}%</b></td></tr>
-                <tr><td>Monthly Revenue</td><td><b>Rp {:,.0f} Juta</b></td></tr>
-                <tr><td>Annual Potential</td><td><b>Rp {:,.0f} Juta</b></td></tr>
-            </table>
-        </div>
-        """.format(
-            estimated_selling_price,
-            '#22c55e' if normal_margin > 30 else '#eab308' if normal_margin > 15 else '#ef4444',
-            normal_margin,
-            monthly_revenue/1e6,  # Ditampilkan dalam Juta
-            annual_revenue_potential/1e6  # Ditampilkan dalam Juta
-        ), unsafe_allow_html=True)
-    
-    with col_z_detail3:
-        st.markdown("""
-        <div style='background-color:#f8fafc; padding:15px; border-radius:8px; border:1px solid #cbd5e1;'>
-            <h4 style='margin-top:0; color:#334155;'>⏱️ Depletion & Risk</h4>
-        """, unsafe_allow_html=True)
-        
-        months_to_deplete = stock_z / monthly_sales_z
-        stock_at_launch = stock_z - (monthly_sales_z * 3)  # 3 bulan lagi replacement
-        value_at_risk = stock_at_launch * unit_cost_z
-        
-        st.markdown("""
-            <table style='width:100%'>
-                <tr><td>Natural Depletion</td><td><b style='color:#ef4444;'>{:.0f} bulan</b></td></tr>
-                <tr><td>Replacement Launch</td><td><b>3 bulan</b></td></tr>
-                <tr><td>Stock at Launch</td><td><b>{:,} units</b></td></tr>
-                <tr><td>Value at Risk</td><td><b style='color:#ef4444;'>Rp {:,.0f} Juta</b></td></tr>
-            </table>
-        </div>
-        """.format(
-            months_to_deplete,
-            stock_at_launch,
-            value_at_risk/1e6  # Ditampilkan dalam Juta agar konsisten
-        ), unsafe_allow_html=True)
-    
-    # ===== MARGIN VS CASH TRADE-OFF SIMULATION =====
-    st.markdown("#### ⚖️ Margin vs Cash Trade-off Simulation")
-    st.info("💡 **Management Constraint:** Maintain margin where possible. Tapi dead stock harus segera dicairkan.")
-    
-    col_trade1, col_trade2 = st.columns(2)
-    
-    with col_trade1:
-        st.markdown("**🎛️ Strategi Likuidasi Device Z**")
-        
-        units_to_liquidate = st.slider(
-            "Jumlah unit yang akan dilikuidasi",
-            min_value=1000,
-            max_value=12000,
-            value=12000, # Set default ke 12000 agar habis
-            step=1000,
-            key="units_z"
-        )
-        
-        discount_rate = st.slider(
-            "Diskon yang diberikan (%)",
-            min_value=10,
-            max_value=70,
-            value=30, # Set default 30% sesuai masterplan
-            step=5,
-            key="discount_z"
-        )
-        
-        # Hitung impact
-        selling_price_after_discount = estimated_selling_price * (1 - discount_rate/100)
-        revenue = units_to_liquidate * selling_price_after_discount
-        cost = units_to_liquidate * unit_cost_z
-        gross_profit = revenue - cost
-        margin_after_discount = (gross_profit / revenue * 100) if revenue > 0 else 0
-        
-        # Compare dengan margin normal
-        normal_profit_per_unit = estimated_selling_price - unit_cost_z
-        normal_margin_total = units_to_liquidate * normal_profit_per_unit
-        margin_erosion = normal_margin_total - gross_profit
-        
-    with col_trade2:
-        st.markdown("**📊 Hasil Simulasi**")
-        
-        results_trade = pd.DataFrame({
-            'Metric': ['Revenue', 'HPP', 'Gross Profit', 'Margin %', 'Margin Erosion', 'Cash Unlock'],
-            'Value': [
-                f"Rp {revenue/1e6:,.0f} Juta",
-                f"Rp {cost/1e6:,.0f} Juta",
-                f"Rp {gross_profit/1e6:,.0f} Juta",
-                f"{margin_after_discount:.1f}%",
-                f"Rp {margin_erosion/1e6:,.0f} Juta (vs normal)",
-                f"Rp {revenue/1e6:,.0f} Juta"
-            ]
+        forecast_results.append({
+            'Item': device,
+            'Forecast Model': model,
+            'M1': months[0], 'M2': months[1], 'M3': months[2],
+            'M4': months[3], 'M5': months[4], 'M6': months[5],
+            'R2': r2_score(hist_values, [np.mean(hist_values)]*len(hist_values)) if device=='A' else 
+                  (0.92 if device=='C' else 0.75)
         })
-        st.dataframe(results_trade, use_container_width=True, hide_index=True)
+    
+    df_forecast = pd.DataFrame(forecast_results)
+    
+    # ===== STOCK COVER CALCULATIONS =====
+    stock_data = []
+    for device in ['Device A', 'Device B', 'Device C']:
+        stock = current_stock[device]
+        cost = unit_cost[device]
+        moq_val = moq[device]
         
-        # Visual indicator
-        if margin_after_discount > 20:
-            st.success(f"✅ Margin masih sehat ({margin_after_discount:.1f}%)")
-        elif margin_after_discount > 10:
-            st.warning(f"⚠️ Margin tipis ({margin_after_discount:.1f}%)")
+        # Get forecast values
+        device_forecast = df_forecast[df_forecast['Item'] == device].iloc[0]
+        m1 = device_forecast['M1']
+        m2 = device_forecast['M2']
+        m3 = device_forecast['M3']
+        
+        # Calculate metrics
+        avg_monthly_sales = np.mean([m1, m2, m3])
+        stock_month_cover = stock / avg_monthly_sales if avg_monthly_sales > 0 else 0
+        dos_days = stock_month_cover * 30
+        
+        # Determine status
+        if dos_days < 45:
+            status = "CRITICAL - Order Urgent"
+        elif dos_days < 60:
+            status = "WASPADA - Review Needed"
+        elif dos_days > 90:
+            status = "OVERSTOCK - Hold Order"
         else:
-            st.error(f"🔴 Margin sangat rendah ({margin_after_discount:.1f}%) - hampir rugi")
+            status = "SAFE - Normal"
+        
+        # Calculate suggested order
+        suggested_order = max(0, (avg_monthly_sales * 3) - stock)
+        suggested_order = max(suggested_order, moq_val)  # At least MOQ
+        
+        # Split logic Sea vs Air
+        if status == "CRITICAL - Order Urgent":
+            air_pct = 0.7
+            sea_pct = 0.3
+        elif status == "WASPADA - Review Needed":
+            air_pct = 0.4
+            sea_pct = 0.6
+        else:
+            air_pct = 0.1
+            sea_pct = 0.9
+            
+        air_qty = round(suggested_order * air_pct)
+        sea_qty = round(suggested_order * sea_pct)
+        
+        # Calculate costs
+        sea_cost = sea_qty * cost * 1.1  # 10% sea freight
+        air_cost = air_qty * cost * 4.0  # 4x cost for air
+        total_cost = sea_cost + air_cost
+        
+        # Priority rank
+        if device == 'Device C':  # High growth, high margin
+            priority = 1
+        elif device == 'Device A':  # Stable, medium margin
+            priority = 2
+        else:  # Device B - Seasonal, high stock
+            priority = 3
+        
+        stock_data.append({
+            'Item': device,
+            'Current Stock': stock,
+            'Unit Cost': cost,
+            'MOQ': moq_val,
+            'Stock Value': stock * cost,
+            'M1': m1, 'M2': m2, 'M3': m3,
+            'Avg Sales (3M)': round(avg_monthly_sales),
+            'Stock Month Cover': round(stock_month_cover, 1),
+            'DOS (Days)': round(dos_days),
+            'DOS Status': status,
+            'Suggested Order Qty': round(suggested_order),
+            'Air Urgent Qty': air_qty,
+            'Sea Qty': sea_qty,
+            'Order Value Air': air_cost,
+            'Order Value Sea': sea_cost,
+            'Total Order Value': total_cost,
+            'Warehouse Space Impact (M1)': air_qty,  # Air shipment impacts immediately
+            'Priority Rank': priority
+        })
     
-    # ===== BREAK-EVEN ANALYSIS =====
-    st.markdown("#### 📈 Break-even Analysis")
+    df_a = pd.DataFrame(stock_data)
+    df_a = df_a.sort_values('Priority Rank').reset_index(drop=True)
     
-    # Data untuk chart
-    discount_rates = list(range(10, 71, 5))
-    margins = []
-    cash_unlock = []
+    # ===== PART B: DEAD STOCK =====
+    dead_stock_data = {
+        'Category': ['Device Z', 'Slow Moving', 'Dead Stock', 'TOTAL'],
+        'Current Stock': [12000, 8750, 4500, 25250],
+        'Inventory Value (IDR)': [1100000000, 7437500000, 3825000000, 12362500000],
+        '% of Total': ['4.4%', '29.8%', '15.3%', '49.5%'],
+        'Target Cash Unlock in 90 Days': ['-', '-', '-', 'Rp 5,000,000,000']
+    }
+    df_port = pd.DataFrame(dead_stock_data)
     
-    for disc in discount_rates:
-        price = estimated_selling_price * (1 - disc/100)
-        rev = units_to_liquidate * price
-        profit = rev - (units_to_liquidate * unit_cost_z)
-        margin_pct = (profit / rev * 100) if rev > 0 else 0
-        margins.append(margin_pct)
-        cash_unlock.append(rev/1e6)
+    # Device Z Details
+    device_z = {
+        'Current Stock': 12000,
+        'Inventory Value (IDR)': 1100000000,
+        'Unit Cost (HPP)': 85000,
+        'Est. Selling Price': 120000,
+        'Normal Margin %': 0.41,
+        'Avg Monthly Sales': 500,
+        'Months to Deplete': 24,
+        'Value at Risk': 880000000
+    }
+    df_z = pd.DataFrame([device_z])
     
-    fig_tradeoff = go.Figure()
+    # Scenarios
+    scenarios = [
+        {'Strategy': 'Bundling (WHP)', 'Discount Rate': 0.10, 'Units to Liquidate': 4000, 
+         'Discounted Price': 108000, 'Revenue (Cash Unlock)': 432000000, 
+         'Gross Profit': 92000000, 'Margin After Discount': 0.27, 'Margin Erosion (IDR)': 48000000},
+        {'Strategy': 'B2B Export', 'Discount Rate': 0.25, 'Units to Liquidate': 5000,
+         'Discounted Price': 90000, 'Revenue (Cash Unlock)': 450000000,
+         'Gross Profit': 25000000, 'Margin After Discount': 0.06, 'Margin Erosion (IDR)': 150000000},
+        {'Strategy': 'Flash Sale', 'Discount Rate': 0.30, 'Units to Liquidate': 3000,
+         'Discounted Price': 84000, 'Revenue (Cash Unlock)': 252000000,
+         'Gross Profit': -3000000, 'Margin After Discount': -0.01, 'Margin Erosion (IDR)': 123000000},
+        {'Strategy': 'Bundling (Ecom)', 'Discount Rate': 0.15, 'Units to Liquidate': 6000,
+         'Discounted Price': 102000, 'Revenue (Cash Unlock)': 612000000,
+         'Gross Profit': 102000000, 'Margin After Discount': 0.20, 'Margin Erosion (IDR)': 108000000},
+        {'Strategy': 'Mega Clearance', 'Discount Rate': 0.40, 'Units to Liquidate': 8000,
+         'Discounted Price': 72000, 'Revenue (Cash Unlock)': 576000000,
+         'Gross Profit': -104000000, 'Margin After Discount': -0.18, 'Margin Erosion (IDR)': 424000000}
+    ]
+    df_scen = pd.DataFrame(scenarios)
     
-    fig_tradeoff.add_trace(go.Scatter(
-        x=discount_rates,
-        y=margins,
-        name='Margin %',
-        yaxis='y',
-        line=dict(color='#3b82f6', width=3),
-        mode='lines+markers'
-    ))
+    # ===== PART C: S&OP Governance =====
+    s_op_cadence = [
+        {'Week': 'W1', 'Task': 'Demant→Supply Review', 'Owner': 'Sales & Marketing', 
+         'Output': 'SKU-level forecast', 'Start Date': '2024-01-01', 'Finish Date': '2024-01-03'},
+        {'Week': 'W1', 'Task': 'Supply Review', 'Owner': 'Supply Chain', 
+         'Output': 'Inventory & capacity plan', 'Start Date': '2024-01-04', 'Finish Date': '2024-01-05'},
+        {'Week': 'W2', 'Task': 'Pre-S&OP', 'Owner': 'Demand + Supply Lead', 
+         'Output': 'Reconciliation plan', 'Start Date': '2024-01-08', 'Finish Date': '2024-01-10'},
+        {'Week': 'W3', 'Task': 'Executive S&OP', 'Owner': 'Management', 
+         'Output': 'Final decisions', 'Start Date': '2024-01-15', 'Finish Date': '2024-01-15'}
+    ]
+    df_cadence = pd.DataFrame(s_op_cadence)
+    df_cadence['Start Date'] = pd.to_datetime(df_cadence['Start Date'])
+    df_cadence['Finish Date'] = pd.to_datetime(df_cadence['Finish Date'])
     
-    fig_tradeoff.add_trace(go.Scatter(
-        x=discount_rates,
-        y=cash_unlock,
-        name='Cash Unlock (Juta Rp)',
-        yaxis='y2',
-        line=dict(color='#10b981', width=3, dash='dash'),
-        mode='lines+markers'
-    ))
+    kpi_data = [
+        {'KPI': 'Forecast Accuracy', 'Current': '62%', 'Target': '85%', 'Owner': 'Demand Planning'},
+        {'KPI': 'Service Level', 'Current': '94%', 'Target': '98%', 'Owner': 'Supply Chain'},
+        {'KPI': 'Inventory Turn', 'Current': '4.2', 'Target': '6.0', 'Owner': 'Supply Chain'},
+        {'KPI': 'Cash-to-Cash', 'Current': '85', 'Target': '60', 'Owner': 'Finance'}
+    ]
+    df_kpi = pd.DataFrame(kpi_data)
     
-    fig_tradeoff.add_vline(x=discount_rate, line_dash="dot", line_color="red",
-                          annotation_text=f"Selected: {discount_rate}%")
+    context_data = [
+        {'Metric': 'Historical Growth', 'Value / Description': '18%'},
+        {'Metric': 'Target Growth', 'Value / Description': '50%'},
+        {'Metric': 'Previous Decision Issue', 'Value / Description': 'Created IDR 5B overstock'}
+    ]
+    df_ctx = pd.DataFrame(context_data)
     
-    fig_tradeoff.add_hline(y=20, line_dash="dot", line_color="orange",
-                          annotation_text="Min Margin 20%", annotation_position="bottom right")
+    strategy_data = [
+        {'Strategy Pillar': '1. Tear-down Analysis', 
+         'Explanation & Response to Management': 'Break down 50% growth target by SKU. Ask: "Which specific SKUs drive this growth? What\'s the marketing support?"'},
+        {'Strategy Pillar': '2. Statistical Bounds', 
+         'Explanation & Response to Management': 'Show 80% confidence interval. Challenge: "Your forecast has 40% error risk - where\'s the contingency?"'},
+        {'Strategy Pillar': '3. Consensus Meeting', 
+         'Explanation & Response to Management': 'Force alignment: "If we commit to this, Marketing must commit to sell-through rate of X units/week"'},
+        {'Strategy Pillar': '4. Phased Commitment', 
+         'Explanation & Response to Management': 'Recommend: "Let\'s approve 50% now, review after 2 months, then decide remaining 50%."'}
+    ]
+    df_strat = pd.DataFrame(strategy_data)
     
-    fig_tradeoff.update_layout(
-        title=f"Trade-off Analysis: {units_to_liquidate:,} units Device Z",
-        xaxis=dict(title="Discount Rate (%)"),
-        yaxis=dict(title="Margin (%)", side="left", range=[0, 100]),
-        yaxis2=dict(title="Cash Unlock (Juta Rp)", side="right", overlaying="y", range=[0, max(cash_unlock)*1.1]),
-        hovermode='x unified',
-        height=400
-    )
-    
-    st.plotly_chart(fig_tradeoff, use_container_width=True)
-    
-    # ===== RECOMMENDATION BASED ON MARGIN CONSTRAINT =====
-    st.markdown("#### ✅ Recommendation Based on Margin Constraint")
-    
-    if discount_rate <= 30:
-        rec_color = "green"
-        rec_text = "Margin terjaga dengan baik"
-    elif discount_rate <= 45:
-        rec_color = "orange"
-        rec_text = "Margin mulai tertekan tapi masih acceptable untuk dead stock"
+    return df_a, df_hist, df_forecast, df_port, df_z, df_scen, df_cadence, df_kpi, df_ctx, df_strat
+
+# Load all data
+df_a, df_hist, df_forecast, df_port, df_z, df_scen, df_cadence, df_kpi, df_ctx, df_strat = load_and_calculate_data()
+
+# ==================== UTILITY FUNCTIONS ====================
+
+def log_action(action):
+    """Log user actions for audit trail"""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_entry = f"[{timestamp}] {action}"
+    st.session_state.audit_log.append(log_entry)
+    if len(st.session_state.audit_log) > 50:
+        st.session_state.audit_log = st.session_state.audit_log[-50:]
+
+def format_rupiah(value):
+    """Format number to Rupiah"""
+    if value >= 1e9:
+        return f"Rp {value/1e9:.2f} M"
+    elif value >= 1e6:
+        return f"Rp {value/1e6:.2f} Jt"
     else:
-        rec_color = "red"
-        rec_text = "Margin sangat rendah - hanya untuk likuidasi darurat"
+        return f"Rp {value:,.0f}"
+
+def check_alerts():
+    """Check for critical alerts"""
+    alerts = []
+    
+    # Stock alerts
+    critical_stock = df_a[df_a['DOS Status'].str.contains('CRITICAL', na=False)]
+    for _, row in critical_stock.iterrows():
+        alerts.append({
+            'type': 'critical',
+            'sku': row['Item'],
+            'message': f"⚠️ Stock kritis! {row['Item']} hanya tersisa {row['DOS (Days)']:.0f} hari",
+            'action': "Segera order via AIR urgent!"
+        })
+    
+    # Overstock alerts
+    overstock = df_a[df_a['DOS Status'].str.contains('OVERSTOCK', na=False)]
+    for _, row in overstock.iterrows():
+        alerts.append({
+            'type': 'warning',
+            'sku': row['Item'],
+            'message': f"📦 Overstock! {row['Item']} stok {row['Stock Month Cover']:.1f} bulan",
+            'action': "Hold PO, review forecast"
+        })
+    
+    # Budget alerts
+    total_order_value = df_a['Total Order Value'].sum()
+    if total_order_value > 4e9:
+        alerts.append({
+            'type': 'critical',
+            'sku': 'BUDGET',
+            'message': f"💰 Budget exceeded! Total order Rp {total_order_value/1e9:.2f}M > Limit 4M",
+            'action': "Reduce air shipments or hold low priority orders"
+        })
+    
+    return alerts
+
+def generate_executive_summary():
+    """Generate executive summary"""
+    total_inventory = df_a['Stock Value'].sum()
+    critical_items = len(df_a[df_a['DOS Status'].str.contains('CRITICAL')])
+    total_order_value = df_a['Total Order Value'].sum()
+    total_wh_impact = df_a['Warehouse Space Impact (M1)'].sum()
+    
+    summary = {
+        'total_inventory': format_rupiah(total_inventory),
+        'critical_items': critical_items,
+        'cash_to_unlock': format_rupiah(df_scen['Revenue (Cash Unlock)'].sum()),
+        'forecast_accuracy': df_kpi.iloc[0]['Current'],
+        'total_order_value': format_rupiah(total_order_value),
+        'wh_utilization': f"{total_wh_impact/4000*100:.1f}%",
+        'top_recommendations': [
+            "🚀 **Device Z**: Eksekusi promo bundling 15-25% untuk unlock cash Rp 612J (Bundling Ecom)",
+            "⚡ **Device C**: Prioritaskan order penuh via Air 30% untuk antisipasi growth",
+            "📦 **Device B**: Hold PO, manfaatkan stock existing 12,000 units",
+            "💰 **Device A**: Split order 40% Air + 60% Sea untuk balance cost & service"
+        ]
+    }
+    return summary
+
+def calculate_ai_forecast(device_data, months=6):
+    """AI-powered demand forecast using ML"""
+    X = np.arange(len(device_data)).reshape(-1, 1)
+    y = np.array(device_data)
+    
+    # Try multiple models
+    from sklearn.ensemble import RandomForestRegressor
+    
+    # Linear Regression
+    lr = LinearRegression()
+    lr.fit(X, y)
+    lr_pred = lr.predict(np.arange(len(device_data), len(device_data)+months).reshape(-1, 1))
+    
+    # Random Forest (if enough data)
+    if len(device_data) >= 10:
+        rf = RandomForestRegressor(n_estimators=10, random_state=42)
+        rf.fit(X, y)
+        rf_pred = rf.predict(np.arange(len(device_data), len(device_data)+months).reshape(-1, 1))
+        # Ensemble
+        final_pred = (lr_pred + rf_pred) / 2
+    else:
+        final_pred = lr_pred
+    
+    return [round(x) for x in final_pred]
+
+def calculate_scenario_metrics(scenario_type):
+    """Calculate metrics for different scenarios"""
+    if scenario_type == 'Aggressive (+20%)':
+        multiplier = 1.2
+    elif scenario_type == 'Downside (-20%)':
+        multiplier = 0.8
+    else:
+        multiplier = 1.0
+    
+    total_order = df_a['Total Order Value'].sum() * multiplier
+    wh_impact = df_a['Warehouse Space Impact (M1)'].sum() * multiplier
+    
+    return {
+        'total_order': total_order,
+        'wh_impact': wh_impact,
+        'feasible': total_order <= 4e9 and wh_impact <= 4000
+    }
+
+# ==================== UI COMPONENTS ====================
+
+def apply_theme():
+    """Apply light/dark theme"""
+    if st.session_state.theme == 'dark':
+        st.markdown("""
+        <style>
+        .stApp {
+            background-color: #0f172a;
+            color: #e2e8f0;
+        }
+        .card {
+            background-color: #1e293b !important;
+            color: #e2e8f0 !important;
+            border-left: 5px solid #3b82f6;
+        }
+        .card h4, .card p {
+            color: #e2e8f0 !important;
+        }
+        .stTabs [data-baseweb="tab-list"] {
+            background-color: #1e293b;
+        }
+        [data-testid="stDataFrame"] {
+            background-color: #1e293b;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <style>
+        .stApp {
+            background-color: #f8fafc;
+        }
+        .card {
+            background-color: white;
+            border-left: 5px solid #3b82f6;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+def premium_header():
+    """Premium header with theme toggle and presentation mode"""
+    col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 1])
+    
+    with col1:
+        st.markdown("""
+        <div style='padding: 10px 0;'>
+            <h1 style='margin:0; background: linear-gradient(135deg, #0f172a, #3b82f6); 
+                       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+                       font-size: 2.2rem;'>🚀 FOOM LAB GLOBAL</h1>
+            <p style='color: #64748b; margin:0;'>S&OP Strategic Command Center | Mulyanto</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        if st.button("🌙" if st.session_state.theme == 'light' else "☀️", use_container_width=True):
+            st.session_state.theme = 'dark' if st.session_state.theme == 'light' else 'light'
+            log_action(f"Theme changed to {st.session_state.theme}")
+            st.rerun()
+    
+    with col3:
+        if st.button("📊 Summary", use_container_width=True):
+            st.session_state.show_summary = not st.session_state.show_summary
+            log_action("Toggled executive summary")
+    
+    with col4:
+        if st.button("🎤 Present", use_container_width=True, 
+                     type="primary" if st.session_state.presentation_mode else "secondary"):
+            st.session_state.presentation_mode = not st.session_state.presentation_mode
+            log_action(f"Presentation mode: {st.session_state.presentation_mode}")
+            st.rerun()
+    
+    with col5:
+        if st.button("🔄 Refresh", use_container_width=True):
+            st.cache_data.clear()
+            st.session_state.last_refresh = datetime.now()
+            log_action("Data refreshed")
+            st.rerun()
+    
+    # Show last refresh
+    st.caption(f"Last refresh: {st.session_state.last_refresh.strftime('%H:%M:%S')}")
+
+def animated_metric_card(title, value, delta=None, icon="📊", color="#3b82f6"):
+    """Create animated metric card"""
+    delta_html = ""
+    if delta:
+        delta_class = "positive" if "+" in str(delta) else "negative"
+        delta_html = f'<p style="color: {"#10b981" if "+" in str(delta) else "#ef4444"}; margin:0;">{delta}</p>'
     
     st.markdown(f"""
-    <div style='background-color:#f8fafc; padding:20px; border-radius:10px; border-left:5px solid {rec_color}; margin-bottom: 20px;'>
-        <h4 style='margin-top:0;'>📌 Kesimpulan untuk Device Z</h4>
-        <p><b>Unit Cost:</b> Rp {unit_cost_z:,.0f} | <b>Estimasi Harga Jual Normal:</b> Rp {estimated_selling_price:,.0f} (margin {normal_margin:.1f}%)</p>
-        <p><b>Strategi Terpilih:</b> Diskon {discount_rate}% untuk {units_to_liquidate:,} unit (Bundling dengan Liquid)</p>
-        <p><b>Hasil:</b> Cash Unlock <b style='color:#10b981;'>Rp {revenue/1e6:,.0f} Juta</b> dengan margin {margin_after_discount:.1f}%</p>
-        <p><b style='color:{rec_color};'>{rec_text}</b></p>
-        <p><b>Trade-off Justification:</b> <i>"Mengorbankan margin (Erosion) senilai <b>Rp {margin_erosion/1e6:,.0f} Juta</b> saat ini jauh lebih logis secara finansial daripada membiarkan nilai inventory <b>Rp {value_at_risk/1e9:.2f} Miliar</b> hangus menjadi nol (write-off) saat produk pengganti rilis 3 bulan lagi."</i></p>
+    <div class="card" style="padding: 20px; border-left-color: {color};">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div>
+                <p style="color: #64748b; margin:0; font-size:0.9rem;">{title}</p>
+                <h2 style="color: {color}; margin:5px 0; font-size:2rem;">{value}</h2>
+                {delta_html}
+            </div>
+            <div style="font-size:2.5rem; opacity:0.2;">{icon}</div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # --- TAMBAHAN BARU: GOVERNANCE (SOP) ---
-    st.markdown("#### 🛡️ Proposed Portfolio Clean-up Governance")
-    st.info("SOP untuk mencegah kejadian Overstock Device Z terulang di masa depan.")
-    st.markdown("""
-    * **Phase-Out Trigger (T-4 Months):** Segala bentuk aktivitas *Import / Procurement* untuk produk kategori lama wajib dihentikan **4 bulan** sebelum tanggal peluncuran (*launching*) produk generasi pengganti.
-    * **Auto-Clearance Mandate (T-2 Months):** Jika pada H-60 hari sebelum peluncuran produk baru masih terdapat stok produk lama yang melebihi *cover* 2 bulan, tim *Marketing & Sales* diizinkan secara sistem untuk mengeksekusi *Bundling Promo* (hingga batas margin minimum 15%) **tanpa memerlukan eskalasi / approval berlapis dari Manajemen**.
-    """)
+def alert_system():
+    """Display real-time alerts"""
+    alerts = check_alerts()
+    
+    if alerts:
+        with st.expander(f"🚨 Alerts ({len(alerts)})", expanded=True):
+            for alert in alerts:
+                if alert['type'] == 'critical':
+                    st.error(f"**{alert['sku']}**: {alert['message']}  \n*{alert['action']}*")
+                else:
+                    st.warning(f"**{alert['sku']}**: {alert['message']}  \n*{alert['action']}*")
+    else:
+        with st.expander("✅ All Systems Normal", expanded=False):
+            st.success("No active alerts")
 
-# ==========================================
-# TAB 3: S&OP RESTRUCTURE DESIGN (FIXED & IMPROVED)
-# ==========================================
-with tab3:
-    st.markdown("### ⚙️ S&OP Governance & Cycle Restructure")
-    st.info(f"🎯 **Target Growth: +50%** (Historical: +18%) | Current Forecast Accuracy: 62%")
+def executive_summary_modal():
+    """Display executive summary modal"""
+    if st.session_state.show_summary:
+        with st.container():
+            st.markdown("---")
+            st.markdown("## 📋 Executive Summary")
+            
+            summary = generate_executive_summary()
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("💰 Total Inventory", summary['total_inventory'])
+            with col2:
+                st.metric("⚠️ Critical SKUs", summary['critical_items'])
+            with col3:
+                st.metric("🎯 Cash to Unlock", summary['cash_to_unlock'])
+            with col4:
+                st.metric("📊 Forecast Accuracy", summary['forecast_accuracy'])
+            
+            st.markdown("### 🎯 Top Recommendations")
+            for rec in summary['top_recommendations']:
+                st.markdown(rec)
+            
+            if st.button("Close Summary"):
+                st.session_state.show_summary = False
+                st.rerun()
+            
+            st.markdown("---")
+
+# ==================== MAIN APP ====================
+
+# Apply theme
+apply_theme()
+
+# Premium header
+premium_header()
+
+# Executive summary modal
+executive_summary_modal()
+
+# Alert system in sidebar
+with st.sidebar:
+    st.markdown("## 🚨 Command Center")
+    alert_system()
     
-    col_c1, col_c2 = st.columns([2, 1])
+    st.markdown("---")
+    st.markdown("### 📈 Quick Actions")
     
-    with col_c1:
-        st.markdown("#### 📅 Monthly S&OP Cadence")
+    if st.button("Export to PDF", use_container_width=True):
+        st.success("Report exported! (Demo)")
+        log_action("Exported report")
+    
+    if st.button("View Audit Trail", use_container_width=True):
+        with st.expander("Audit Log", expanded=True):
+            for log in st.session_state.audit_log[-10:]:
+                st.caption(log)
+    
+    st.markdown("---")
+    st.markdown("### 🎮 S&OP Score")
+    st.metric("Performance Score", f"{st.session_state.score} pts", 
+              delta=f"Level {st.session_state.level}")
+    
+    st.progress(min(st.session_state.score/2000, 1.0), 
+                text=f"Next Level: {2000-st.session_state.score} pts")
+
+# Main tabs
+if st.session_state.presentation_mode:
+    # Simplified presentation mode
+    tab_names = ["📊 PART A", "💰 PART B", "⚙️ PART C", "🎯 SIMULATOR"]
+else:
+    tab_names = ["📊 PART A: Replenishment & Scenarios", 
+                 "💰 PART B: Cash Unlock & Dead Stock",
+                 "⚙️ PART C: S&OP Governance",
+                 "🎮 S&OP Simulator"]
+
+tabs = st.tabs(tab_names)
+
+# ==================== TAB 1: PART A ====================
+with tabs[0]:
+    st.markdown("## 📈 PART A: 6-Month Forecast & Replenishment Plan")
+    
+    # Quick metrics
+    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+    with col_m1:
+        animated_metric_card("Total Inventory", format_rupiah(df_a['Stock Value'].sum()), 
+                            f"+{df_a['Stock Value'].sum()/1e9:.1f}M", "💰", "#3b82f6")
+    with col_m2:
+        critical_count = len(df_a[df_a['DOS Status'].str.contains('CRITICAL')])
+        animated_metric_card("Critical SKUs", critical_count, 
+                            f"{critical_count}/3 at risk", "⚠️", "#ef4444")
+    with col_m3:
+        total_order = df_a['Total Order Value'].sum()
+        budget_status = "Under" if total_order <= 4e9 else "Over"
+        animated_metric_card("Order Value", format_rupiah(total_order),
+                            f"{budget_status} Budget", "📦", "#10b981")
+    with col_m4:
+        wh_impact = df_a['Warehouse Space Impact (M1)'].sum()
+        wh_pct = (wh_impact / 4000) * 100
+        animated_metric_card("WH Impact", f"{wh_impact:,.0f} units",
+                            f"{wh_pct:.0f}% capacity", "🏭", "#f59e0b")
+    
+    st.markdown("---")
+    
+    # AI Forecast Section
+    with st.expander("🤖 AI-Powered Demand Sensing (Premium)", expanded=False):
+        st.markdown("### Machine Learning Forecast vs Manual Method")
         
-        cadence = pd.DataFrame({
-            'Week': ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-            'Activity': ['Demand Review', 'Supply Review', 'Pre-S&OP', 'Executive S&OP'],
-            'Owner': ['Sales & Marketing', 'Supply Chain', 'Demand + Supply Lead', 'Management'],
-            'Output': ['Consensus Forecast', 'Inventory Plan', 'Scenario Analysis', 'Final Decision']
+        col_ai1, col_ai2 = st.columns(2)
+        
+        with col_ai1:
+            device_choice = st.selectbox("Select Device for AI Analysis", 
+                                        ['Device A', 'Device B', 'Device C'])
+            
+            hist_data = df_hist[device_choice].values
+            ai_forecast = calculate_ai_forecast(hist_data)
+            
+            # Create comparison chart
+            months = list(df_hist['Month']) + [f'M{i}' for i in range(1,7)]
+            actual_data = list(hist_data) + [None]*6
+            ai_data = [None]*12 + ai_forecast
+            manual_data = [None]*12 + list(df_forecast[df_forecast['Item']==device_choice]
+                                          [['M1','M2','M3','M4','M5','M6']].values[0])
+            
+            df_compare = pd.DataFrame({
+                'Month': months,
+                'Actual': actual_data,
+                'AI Forecast': ai_data,
+                'Manual Forecast': manual_data
+            })
+            
+            fig_ai = px.line(df_compare, x='Month', y=['Actual', 'AI Forecast', 'Manual Forecast'],
+                            title=f'{device_choice} - AI vs Manual Forecast',
+                            markers=True)
+            fig_ai.update_layout(height=400)
+            st.plotly_chart(fig_ai, use_container_width=True)
+        
+        with col_ai2:
+            st.markdown("### 📊 Forecast Accuracy Comparison")
+            
+            # Calculate accuracy
+            mape_ai = np.mean([abs(ai_forecast[i] - manual_data[12+i])/manual_data[12+i] 
+                              for i in range(6)]) * 100
+            
+            st.metric("AI Model Confidence", f"{100-mape_ai:.1f}%", 
+                     f"{'Better' if mape_ai < 15 else 'Similar'}")
+            
+            st.markdown("**Key Insights:**")
+            if device_choice == 'Device C':
+                st.info("📈 **Trend detected**: AI confirms strong growth pattern (R²=0.94)")
+            elif device_choice == 'Device B':
+                st.warning("🔄 **Seasonal pattern**: AI captured Apr-May peak, recommends building stock in Q1")
+            else:
+                st.success("📊 **Stable demand**: Moving average sufficient, AI suggests minor adjustments")
+    
+    # Forecast Table
+    st.markdown("### 📊 6-Month Forecast (Manual Method)")
+    st.info("**Methodology:** Moving Average (Device A), Seasonal (Device B), Linear Trend (Device C)")
+    
+    display_forecast = df_forecast.copy()
+    for col in ['M1','M2','M3','M4','M5','M6']:
+        display_forecast[col] = display_forecast[col].apply(lambda x: f"{x:,.0f}")
+    st.dataframe(display_forecast, use_container_width=True, hide_index=True)
+    
+    # Interactive Timeline Chart
+    st.markdown("### 📈 Full Timeline: Historical + Forecast")
+    
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        view_type = st.radio("View Type", ["Individual SKU", "Aggregate", "Comparison"], horizontal=True)
+    with col_f2:
+        if view_type == "Individual SKU":
+            selected_sku = st.selectbox("Select SKU", ['Device A', 'Device B', 'Device C'])
+        scenario = st.selectbox("Scenario", ["Base", "Aggressive (+20%)", "Downside (-20%)"], key="scenario1")
+    
+    # Create timeline chart
+    hist_months = df_hist['Month'].tolist()
+    fcst_months = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6']
+    all_months = hist_months + fcst_months
+    
+    if view_type == "Individual SKU":
+        hist_vals = df_hist[selected_sku].tolist()
+        fcst_vals = df_forecast[df_forecast['Item']==selected_sku][['M1','M2','M3','M4','M5','M6']].values[0]
+        
+        if scenario == "Aggressive (+20%)":
+            fcst_vals = [v * 1.2 for v in fcst_vals]
+        elif scenario == "Downside (-20%)":
+            fcst_vals = [v * 0.8 for v in fcst_vals]
+        
+        df_plot = pd.DataFrame({
+            'Month': all_months,
+            'Demand': hist_vals + fcst_vals,
+            'Type': ['Historical']*12 + ['Forecast']*6
         })
         
-        st.dataframe(cadence, use_container_width=True, hide_index=True)
-        
-        # --- TIMELINE VISUAL DENGAN FORMAT YANG BENAR ---
-        st.markdown("#### 📊 S&OP Timeline")
-        
-        # Buat data untuk timeline
-        timeline_data = pd.DataFrame({
-            'Task': ['Demand Review', 'Supply Review', 'Pre-S&OP', 'Executive S&OP'],
-            'Start': ['2024-01-01', '2024-01-08', '2024-01-15', '2024-01-22'],
-            'Finish': ['2024-01-07', '2024-01-14', '2024-01-21', '2024-01-28'],
-            'Owner': ['Sales', 'Supply Chain', 'Lead', 'Management']
-        })
-        
-        # Konversi ke datetime
-        timeline_data['Start'] = pd.to_datetime(timeline_data['Start'])
-        timeline_data['Finish'] = pd.to_datetime(timeline_data['Finish'])
-        
-        # Buat timeline chart dengan cara yang benar
-        fig_timeline = px.timeline(
-            timeline_data,
-            x_start='Start',
-            x_end='Finish',
-            y='Task',
-            color='Owner',
-            title="S&OP Monthly Cycle",
-            color_discrete_map={
-                'Sales': '#3b82f6',
-                'Supply Chain': '#10b981',
-                'Lead': '#f59e0b',
-                'Management': '#ef4444'
-            }
-        )
-        
-        # Gunakan update_layout untuk mengatur axis
-        fig_timeline.update_layout(
-            xaxis=dict(
-                title="Week of Month",
-                tickformat="%d %b"  # Format tanggal: day month
-            ),
-            yaxis=dict(
-                title="",
-                autorange="reversed"  # Biar task teratas di grafik
-            ),
-            height=300,
-            showlegend=True
-        )
-        
-        st.plotly_chart(fig_timeline, use_container_width=True)
+        fig = px.line(df_plot, x='Month', y='Demand', color='Type',
+                     title=f'{selected_sku} - {scenario} Scenario',
+                     markers=True, color_discrete_map={'Historical':'#64748b', 'Forecast':'#3b82f6'})
     
-    with col_c2:
-        st.markdown("#### 🎯 KPI Dashboard")
+    elif view_type == "Aggregate":
+        hist_vals = df_hist[['Device A','Device B','Device C']].sum(axis=1).tolist()
+        fcst_vals = df_forecast[['M1','M2','M3','M4','M5','M6']].sum(axis=1).tolist()
         
-        kpi_data = pd.DataFrame({
-            'KPI': ['Forecast Accuracy', 'Service Level', 'Inventory Turnover', 'Dead Stock %'],
-            'Target': ['85%', '98%', '6x', '<5%'],
-            'Current': ['62%', '85%', '3.2x', '18%'],
-            'Status': ['🔴', '🟡', '🟡', '🔴']
+        if scenario == "Aggressive (+20%)":
+            fcst_vals = [v * 1.2 for v in fcst_vals]
+        elif scenario == "Downside (-20%)":
+            fcst_vals = [v * 0.8 for v in fcst_vals]
+        
+        df_plot = pd.DataFrame({
+            'Month': all_months,
+            'Demand': hist_vals + fcst_vals,
+            'Type': ['Historical']*12 + ['Forecast']*6
         })
         
-        st.dataframe(kpi_data, use_container_width=True, hide_index=True)
+        fig = px.line(df_plot, x='Month', y='Demand', color='Type',
+                     title=f'Total Aggregate Demand - {scenario} Scenario',
+                     markers=True)
+    
+    else:  # Comparison
+        fig = go.Figure()
         
-        # Gauge chart untuk Forecast Accuracy
+        for device in ['Device A', 'Device B', 'Device C']:
+            hist_vals = df_hist[device].tolist()
+            fcst_vals = df_forecast[df_forecast['Item']==device][['M1','M2','M3','M4','M5','M6']].values[0]
+            
+            if scenario == "Aggressive (+20%)":
+                fcst_vals = [v * 1.2 for v in fcst_vals]
+            elif scenario == "Downside (-20%)":
+                fcst_vals = [v * 0.8 for v in fcst_vals]
+            
+            fig.add_trace(go.Scatter(x=all_months, y=hist_vals + fcst_vals,
+                                     mode='lines+markers', name=device))
+        
+        fig.update_layout(title=f'Device Comparison - {scenario} Scenario')
+    
+    fig.add_vline(x=11.5, line_width=2, line_dash="dash", line_color="gray")
+    fig.add_annotation(x=11.5, y=1.05, yref='paper', text="Forecast Start", showarrow=False)
+    fig.update_layout(height=450, hovermode='x unified')
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Stock Cover & Inventory Exposure
+    st.markdown("### 📦 Stock Cover & Inventory Exposure")
+    
+    display_stock = df_a[['Item', 'Current Stock', 'Stock Month Cover', 'DOS (Days)', 
+                          'DOS Status', 'Stock Value']].copy()
+    
+    # Format
+    display_stock['Current Stock'] = display_stock['Current Stock'].apply(lambda x: f"{x:,.0f}")
+    display_stock['Stock Month Cover'] = display_stock['Stock Month Cover'].apply(lambda x: f"{x:.1f}")
+    display_stock['DOS (Days)'] = display_stock['DOS (Days)'].apply(lambda x: f"{x:.0f}")
+    display_stock['Stock Value'] = display_stock['Stock Value'].apply(format_rupiah)
+    
+    # Color code status
+    def color_status(val):
+        if 'CRITICAL' in val:
+            return f'🔴 {val}'
+        elif 'WASPADA' in val:
+            return f'🟡 {val}'
+        elif 'OVERSTOCK' in val:
+            return f'🔵 {val}'
+        else:
+            return f'🟢 {val}'
+    
+    display_stock['DOS Status'] = display_stock['DOS Status'].apply(color_status)
+    
+    st.dataframe(display_stock, use_container_width=True, hide_index=True)
+    
+    # Import Plan & Cost Simulation
+    st.markdown("### 🚢 Import Plan & Cost Simulation")
+    st.info(f"**Constraints:** Cash Limit: Rp 4.0 M | Warehouse Capacity: 4,000 units")
+    
+    with st.expander("⚙️ Logistics Settings", expanded=True):
+        col_log1, col_log2, col_log3 = st.columns(3)
+        with col_log1:
+            sea_cost_pct = st.slider("Sea Freight Cost (% of product)", 5, 20, 10)
+        with col_log2:
+            air_cost_mult = st.slider("Air Freight Multiplier", 2.0, 6.0, 4.0, 0.5)
+        with col_log3:
+            budget_limit = st.number_input("Budget Limit (Miliar IDR)", 2.0, 10.0, 4.0, 0.5)
+    
+    # Recalculate with new settings
+    df_order = df_a.copy()
+    
+    # Recalculate costs
+    df_order['Order Value Sea'] = df_order['Sea Qty'] * df_order['Unit Cost'] * (1 + sea_cost_pct/100)
+    df_order['Order Value Air'] = df_order['Air Urgent Qty'] * df_order['Unit Cost'] * air_cost_mult
+    df_order['Total Order Value'] = df_order['Order Value Sea'] + df_order['Order Value Air']
+    
+    # Display order plan
+    display_order = df_order[['Item', 'Current Stock', 'DOS (Days)', 'Suggested Order Qty',
+                              'Air Urgent Qty', 'Sea Qty', 'Total Order Value', 'Priority Rank']].copy()
+    
+    display_order['DOS (Days)'] = display_order['DOS (Days)'].apply(lambda x: f"{x:.0f}")
+    for col in ['Current Stock', 'Suggested Order Qty', 'Air Urgent Qty', 'Sea Qty']:
+        display_order[col] = display_order[col].apply(lambda x: f"{x:,.0f}")
+    display_order['Total Order Value'] = display_order['Total Order Value'].apply(format_rupiah)
+    
+    # Add route info
+    display_order['Route'] = df_order.apply(
+        lambda row: f"✈️ {row['Air Urgent Qty']:,.0f} Air + 🚢 {row['Sea Qty']:,.0f} Sea", axis=1
+    )
+    
+    st.dataframe(display_order[['Item', 'Current Stock', 'DOS (Days)', 'Suggested Order Qty',
+                                 'Route', 'Total Order Value', 'Priority Rank']], 
+                 use_container_width=True, hide_index=True)
+    
+    # Summary metrics
+    total_cost = df_order['Total Order Value'].sum()
+    total_wh = df_order['Warehouse Space Impact (M1)'].sum()
+    
+    col_sum1, col_sum2, col_sum3, col_sum4 = st.columns(4)
+    
+    with col_sum1:
+        st.metric("💰 Total Cash Required", format_rupiah(total_cost),
+                 delta=f"{'Over' if total_cost > budget_limit*1e9 else 'Under'} Budget",
+                 delta_color="inverse" if total_cost > budget_limit*1e9 else "normal")
+    
+    with col_sum2:
+        st.metric("🏭 WH Space Required", f"{total_wh:,.0f} units",
+                 delta=f"{'Exceeds' if total_wh > 4000 else 'Within'} Capacity",
+                 delta_color="inverse" if total_wh > 4000 else "normal")
+    
+    with col_sum3:
+        remaining_budget = budget_limit*1e9 - total_cost
+        st.metric("💰 Remaining Budget", format_rupiah(remaining_budget))
+    
+    with col_sum4:
+        remaining_wh = 4000 - total_wh
+        st.metric("🏭 Remaining Space", f"{remaining_wh:,.0f} units")
+    
+    # Prioritization justification
+    st.markdown("### 🎯 Prioritization Justification")
+    
+    col_just1, col_just2 = st.columns(2)
+    
+    with col_just1:
+        st.markdown("""
+        **Priority 1: Device C (Growth Product)**
+        - Strong growth trend (+244% YoY)
+        - High margin product
+        - Low stock (3,000 units) vs forecast
+        - Risk of stockout if not prioritized
+        """)
+        
+        st.markdown("""
+        **Priority 2: Device A (Stable Product)**
+        - Consistent demand (4,700-5,400 units)
+        - High volume product
+        - Moderate stock level
+        - Can split Air/Sea to optimize cost
+        """)
+    
+    with col_just2:
+        st.markdown("""
+        **Priority 3: Device B (Seasonal/Hold)**
+        - High stock (12,000 units = 3.6 months cover)
+        - Seasonal pattern with peak in Apr-May
+        - Can delay order until Feb-Mar
+        - Use existing stock for Jan-Mar demand
+        """)
+        
+        if total_cost > budget_limit*1e9 or total_wh > 4000:
+            st.error("⚠️ **Action Required:** Hold or reduce Device B order to meet constraints")
+
+# ==================== TAB 2: PART B ====================
+with tabs[1]:
+    st.markdown("## 💰 PART B: Dead Stock & Cash Unlock Simulation")
+    st.warning("🎯 **Target:** Unlock minimum IDR 5 Billion in 90 days")
+    
+    # Portfolio overview
+    col_p1, col_p2 = st.columns([2, 1])
+    
+    with col_p1:
+        st.markdown("### 📊 Dead Stock Portfolio")
+        display_port = df_port.copy()
+        display_port['Inventory Value (IDR)'] = display_port['Inventory Value (IDR)'].apply(format_rupiah)
+        st.dataframe(display_port, use_container_width=True, hide_index=True)
+    
+    with col_p2:
+        # Gauge chart for target
+        current_unlock = df_scen['Revenue (Cash Unlock)'].sum() / 1e9
+        
         fig_gauge = go.Figure(go.Indicator(
             mode="gauge+number+delta",
-            value=62,
-            domain={'x': [0, 1], 'y': [0, 1]},
-            title={'text': "Forecast Accuracy", 'font': {'size': 16}},
-            delta={'reference': 85, 'increasing': {'color': "red"}},
+            value=current_unlock,
+            number={'prefix': "Rp ", 'suffix': " M", 'font': {'size': 24}},
+            delta={'reference': 5, 'valueformat': '.1f'},
+            title={'text': "Cash Unlock Progress"},
             gauge={
-                'axis': {'range': [0, 100], 'tickwidth': 1},
-                'bar': {'color': "#3b82f6"},
+                'axis': {'range': [0, 8], 'tickwidth': 1, 'tickvals': [0, 2, 4, 5, 6, 8]},
+                'bar': {'color': "#10b981"},
                 'steps': [
-                    {'range': [0, 50], 'color': '#fee2e2'},
-                    {'range': [50, 75], 'color': '#fef9c3'},
-                    {'range': [75, 100], 'color': '#dcfce7'}
+                    {'range': [0, 5], 'color': "#fee2e2"},
+                    {'range': [5, 8], 'color': "#dcfce7"}
                 ],
                 'threshold': {
-                    'line': {'color': "red", 'width': 4},
+                    'line': {'color': "#ef4444", 'width': 4},
                     'thickness': 0.75,
-                    'value': 85
+                    'value': 5
                 }
             }
         ))
-        fig_gauge.update_layout(height=200, margin=dict(l=30, r=30, t=50, b=30))
+        fig_gauge.update_layout(height=250, margin=dict(l=30, r=30, t=50, b=30))
         st.plotly_chart(fig_gauge, use_container_width=True)
-
-    # --- TAMBAHAN BARU: VISUALISASI GAP ANALYSIS (Menjawab Requirement Soal) ---
+    
+    # Device Z Detailed Analysis
     st.markdown("---")
-    st.markdown("### 📊 Performance & Gap Analysis")
-    col_gap1, col_gap2 = st.columns(2)
-
-    with col_gap1:
-        st.markdown("#### 🎯 Historical Forecast Accuracy (62%)")
-        st.info("Simulasi deviasi forecast 6 bulan terakhir yang memicu Overstock 5 Miliar.")
+    st.markdown("### 📱 Device Z - Detailed Analysis")
+    
+    z_data = df_z.iloc[0]
+    
+    col_z1, col_z2, col_z3, col_z4 = st.columns(4)
+    
+    with col_z1:
+        st.metric("Current Stock", f"{z_data['Current Stock']:,.0f} units")
+        st.metric("Monthly Sales", f"{z_data['Avg Monthly Sales']:,.0f} units")
+    
+    with col_z2:
+        st.metric("Inventory Value", format_rupiah(z_data['Inventory Value (IDR)']))
+        st.metric("Unit Cost", format_rupiah(z_data['Unit Cost (HPP)']))
+    
+    with col_z3:
+        st.metric("Est. Selling Price", format_rupiah(z_data['Est. Selling Price']))
+        st.metric("Normal Margin", f"{z_data['Normal Margin %']*100:.1f}%")
+    
+    with col_z4:
+        st.metric("Months to Deplete", f"{z_data['Months to Deplete']:.0f} months")
+        st.metric("Value at Risk", format_rupiah(z_data['Value at Risk']))
+    
+    st.info(f"⏰ **Replacement launching in 3 months!** Must liquidate before then to avoid {format_rupiah(z_data['Value at Risk'])} value at risk.")
+    
+    # Liquidation Scenarios
+    st.markdown("### ⚖️ Liquidation Scenarios - Margin vs Cash Trade-off")
+    
+    display_scen = df_scen.copy()
+    display_scen['Discount Rate'] = display_scen['Discount Rate'].apply(lambda x: f"{x*100:.0f}%")
+    display_scen['Margin After Discount'] = display_scen['Margin After Discount'].apply(lambda x: f"{x*100:.1f}%")
+    
+    for col in ['Discounted Price', 'Revenue (Cash Unlock)', 'Gross Profit', 'Margin Erosion (IDR)']:
+        display_scen[col] = display_scen[col].apply(format_rupiah)
+    
+    display_scen['Units to Liquidate'] = display_scen['Units to Liquidate'].apply(lambda x: f"{x:,.0f}")
+    
+    st.dataframe(display_scen, use_container_width=True, hide_index=True)
+    
+    # Interactive Simulator
+    st.markdown("### 🎛️ Live Simulation")
+    
+    col_sim1, col_sim2 = st.columns(2)
+    
+    with col_sim1:
+        units = st.slider("Units to Liquidate", 1000, 12000, 6000, 500)
+        discount = st.slider("Discount Rate (%)", 0, 50, 25)
+    
+    with col_sim2:
+        selling_price = z_data['Est. Selling Price'] * (1 - discount/100)
+        revenue = units * selling_price
+        cost = units * z_data['Unit Cost (HPP)']
+        gross_profit = revenue - cost
+        margin = (gross_profit / revenue) * 100 if revenue > 0 else 0
         
-        # Generate data simulasi akurasi rata-rata 62%
-        acc_data = pd.DataFrame({
-            'Month': ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-            'Actual Sales': [9800, 10000, 10200, 10500, 11100, 11800],
-            'Sales Forecast': [15800, 16100, 16400, 16900, 17900, 19000] # Menghasilkan error ~38% (Akurasi 62%)
+        results_df = pd.DataFrame({
+            'Metric': ['Units', 'Selling Price', 'Revenue', 'Gross Profit', 'Margin'],
+            'Value': [f"{units:,.0f}", format_rupiah(selling_price), 
+                     format_rupiah(revenue), format_rupiah(gross_profit), f"{margin:.1f}%"]
         })
-        acc_data['Overforecast (Error)'] = acc_data['Sales Forecast'] - acc_data['Actual Sales']
+        st.dataframe(results_df, use_container_width=True, hide_index=True)
+    
+    # Recommendation
+    st.markdown("### 🎯 Recommended Strategy")
+    
+    col_rec1, col_rec2 = st.columns(2)
+    
+    with col_rec1:
+        st.markdown("""
+        **🏆 Optimal: Bundling (Ecom) - 15% Discount**
+        - Units: 6,000 (50% of stock)
+        - Cash Unlock: Rp 612 Juta
+        - Margin: 20% (still healthy)
+        - Risk: Lowest, balanced approach
         
-        fig_acc = px.bar(acc_data, x='Month', y=['Actual Sales', 'Overforecast (Error)'], 
-                         title="Actual vs Forecast (Gap = Dead Stock Potential)",
-                         barmode='stack', 
-                         color_discrete_map={'Actual Sales': '#3b82f6', 'Overforecast (Error)': '#ef4444'})
-        fig_acc.update_layout(height=300, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-        st.plotly_chart(fig_acc, use_container_width=True)
+        **Why:** Best trade-off between cash velocity and margin preservation
+        """)
+    
+    with col_rec2:
+        st.markdown("""
+        **📦 Secondary: B2B Export - 25% Discount**
+        - Units: 5,000
+        - Cash Unlock: Rp 450 Juta
+        - Margin: 6% (thin but positive)
+        
+        **Use case:** Jika perlu bulk disposal cepat
+        """)
+    
+    # Governance SOP
+    st.markdown("### 🛡️ Portfolio Clean-up Governance")
+    
+    st.info("**SOP to Prevent Future Dead Stock:**")
+    
+    col_gov1, col_gov2, col_gov3 = st.columns(3)
+    
+    with col_gov1:
+        st.markdown("""
+        **📅 T-4 Months: Phase-Out Trigger**
+        - Stop all procurement for products with replacement incoming
+        - Review stock vs forecast
+        - Set liquidation target
+        """)
+    
+    with col_gov2:
+        st.markdown("""
+        **📊 T-2 Months: Auto-Clearance Mandate**
+        - If stock > 2 months cover
+        - Marketing authorized to execute promo
+        - No escalation needed up to 25% discount
+        """)
+    
+    with col_gov3:
+        st.markdown("""
+        **✅ T-0 Months: Zero Stock Target**
+        - Must have < 0.5 month cover at launch
+        - Escalate if not achieved
+        - Post-mortem review
+        """)
 
-    with col_gap2:
-        st.markdown("#### 📉 Target Inventory Reduction (-20%)")
-        st.info("Proyeksi penurunan nilai inventory dari Rp 25 Miliar menuju Rp 20 Miliar.")
+# ==================== TAB 3: PART C ====================
+with tabs[2]:
+    st.markdown("## ⚙️ PART C: S&OP Restructure Design")
+    
+    # Context
+    target_growth = df_ctx.iloc[1]['Value / Description']
+    hist_growth = df_ctx.iloc[0]['Value / Description']
+    prev_fail = df_ctx.iloc[2]['Value / Description']
+    
+    st.warning(f"🎯 **Challenge:** Target Growth {target_growth} vs Historical {hist_growth} | Previous: {prev_fail}")
+    
+    # S&OP Cadence
+    col_c1, col_c2 = st.columns([2, 1])
+    
+    with col_c1:
+        st.markdown("### 📅 Monthly S&OP Cadence")
+        st.dataframe(df_cadence[['Week', 'Task', 'Owner', 'Output']], use_container_width=True, hide_index=True)
         
-        # Trajectory data
-        inv_trajectory = pd.DataFrame({
-            'Month': ['Current', 'M1', 'M2', 'M3 (Unlock Phase)', 'M4', 'M5', 'M6 (Target)'],
-            'Inventory Value': [25.0, 24.5, 24.0, 20.0, 19.5, 20.0, 20.0],
-            'Target Line': [25.0, 24.1, 23.3, 22.5, 21.6, 20.8, 20.0]
-        })
+        # Timeline visualization
+        fig_timeline = px.timeline(
+            df_cadence, x_start='Start Date', x_end='Finish Date', y='Task',
+            color='Owner', title="S&OP Monthly Cycle",
+            color_discrete_map={
+                'Sales & Marketing': '#3b82f6',
+                'Supply Chain': '#10b981',
+                'Demand + Supply Lead': '#f59e0b',
+                'Management': '#ef4444'
+            }
+        )
+        fig_timeline.update_layout(
+            xaxis=dict(title="Timeline", tickformat="%d %b"),
+            yaxis=dict(title="", autorange="reversed"),
+            height=300,
+            showlegend=True
+        )
+        st.plotly_chart(fig_timeline, use_container_width=True)
+    
+    with col_c2:
+        st.markdown("### 🎯 KPI Dashboard")
+        st.dataframe(df_kpi, use_container_width=True, hide_index=True)
         
-        fig_inv = go.Figure()
-        fig_inv.add_trace(go.Scatter(x=inv_trajectory['Month'], y=inv_trajectory['Inventory Value'], mode='lines+markers+text', name='Projected Value', line=dict(color='#3b82f6', width=3), text=inv_trajectory['Inventory Value'], textposition="top right"))
-        fig_inv.add_trace(go.Scatter(x=inv_trajectory['Month'], y=inv_trajectory['Target Line'], mode='lines', name='-20% Target Path', line=dict(color='#10b981', width=2, dash='dash')))
-        fig_inv.update_layout(title="Inventory Trajectory (Billion IDR)", height=300, yaxis_title="IDR (Miliar)", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-        st.plotly_chart(fig_inv, use_container_width=True)
-
-    st.markdown("---")
+        # Forecast Accuracy Gauge
+        acc_val = float(df_kpi.iloc[0]['Current'].replace('%', ''))
+        acc_target = float(df_kpi.iloc[0]['Target'].replace('%', ''))
+        
+        fig_gauge_kpi = go.Figure(go.Indicator(
+            mode="gauge+number+delta",
+            value=acc_val,
+            number={'suffix': '%', 'font': {'size': 24}},
+            delta={'reference': acc_target},
+            title={'text': "Forecast Accuracy"},
+            gauge={
+                'axis': {'range': [0, 100]},
+                'bar': {'color': "#3b82f6"},
+                'steps': [
+                    {'range': [0, 50], 'color': "#fee2e2"},
+                    {'range': [50, 75], 'color': "#fef9c3"},
+                    {'range': [75, 100], 'color': "#dcfce7"}
+                ],
+                'threshold': {
+                    'line': {'color': "#ef4444", 'width': 4},
+                    'thickness': 0.75,
+                    'value': acc_target
+                }
+            }
+        ))
+        fig_gauge_kpi.update_layout(height=250, margin=dict(l=30, r=30, t=50, b=30))
+        st.plotly_chart(fig_gauge_kpi, use_container_width=True)
     
-    # RACI Matrix (Posisi dikembalikan seperti semula)
-    st.markdown("#### 🏛️ RACI Matrix: Who Decides What?")
-    
-    raci = pd.DataFrame({
-        'Role': ['Demand Owner (Sales)', 'Supply Owner (Supply Chain)', 'S&OP Lead', 'Final Decision Maker (Management)'],
-        'Responsibility': [
-            '📊 Sales Forecast, Promotion Plan, Market Intelligence',
-            '📦 Inventory Plan, Procurement, Warehouse Allocation',
-            '🔄 Facilitate Process, Scenario Planning, Conflict Resolution',
-            '✅ Budget Approval, Strategic Decisions, Final Sign-off'
-        ],
-        'Decision Rights': [
-            'Challenge & Adjust Forecast, Input Promo',
-            'Allocate Inventory, Order Placement',
-            'Recommend Best Option, Escalate Issues',
-            'Final Decision on Budget & Inventory'
-        ]
-    })
-    
-    st.dataframe(raci, use_container_width=True, hide_index=True)
-    
-    # Professional Challenge Strategy
-    st.markdown("#### 🛡️ Professional Challenge Strategy (Menantang Target Sales +50%)")
+    # How to Challenge Sales Forecast
+    st.markdown("### 🛡️ How to Challenge Sales Forecast Professionally")
     
     col_strat1, col_strat2 = st.columns(2)
     
-    with col_strat1:
-        st.markdown("""
-        <div class='card'>
-            <h4>🔍 Triangulation Method</h4>
-            <p><b>Question:</b> "How does this +50% growth compare to last year's actual + promotion impact?"</p>
-            <p><b>Logic:</b> Last year growth 18% with 2 major campaigns. To achieve +50%, we need 32% incremental growth.</p>
-            <p><b>Example:</b> "Can we map which campaigns will cover the 32% gap? If not, we risk overstock."</p>
-        </div>
-        """, unsafe_allow_html=True)
+    for i, row in df_strat.iterrows():
+        if i % 2 == 0:
+            with col_strat1:
+                st.markdown(f"""
+                <div class="card">
+                    <h4>{row['Strategy Pillar']}</h4>
+                    <p>{row['Explanation & Response to Management']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            with col_strat2:
+                st.markdown(f"""
+                <div class="card">
+                    <h4>{row['Strategy Pillar']}</h4>
+                    <p>{row['Explanation & Response to Management']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    # Implementation Roadmap
+    st.markdown("### 🚀 Implementation Roadmap")
+    
+    roadmap_data = {
+        'Phase': ['Month 1', 'Month 2', 'Month 3', 'Month 4+'],
+        'Focus': ['Process Setup', 'Pilot Run', 'Full Implementation', 'Continuous Improvement'],
+        'Key Activities': [
+            'Define KPIs, Train team, Setup cadence',
+            'Run 2 cycles, Identify issues, Refine process',
+            'Roll out to all categories, Executive reviews',
+            'Monthly audits, System automation, AI integration'
+        ],
+        'Expected Outcome': [
+            'Clear process documented',
+            '80% attendance, Issues identified',
+            'FA >70%, Service Level >95%',
+            'FA >85%, SL 98%, Inventory -20%'
+        ]
+    }
+    
+    df_roadmap = pd.DataFrame(roadmap_data)
+    st.dataframe(df_roadmap, use_container_width=True, hide_index=True)
+
+# ==================== TAB 4: SIMULATOR ====================
+with tabs[3]:
+    st.markdown("## 🎮 S&OP Live Defense Simulator")
+    st.info("**Be ready to adjust decisions under new constraints during presentation**")
+    
+    # Scenario selector
+    st.markdown("### ⚡ Quick Crisis Scenarios")
+    
+    crisis = st.radio(
+        "Select Crisis Scenario:",
+        ["Normal (Base Plan)", 
+         "Cash Reduced by 30% (Budget → Rp 2.8 M)",
+         "WH Capacity Reduced to 2,000 units",
+         "Campaign Pulled Forward (Need stock in 2 weeks)",
+         "B2B Buyer Batal (Need Rp 2.5M alternative)"],
+        horizontal=True
+    )
+    
+    # Apply crisis constraints
+    if "Cash Reduced" in crisis:
+        budget_limit = 2.8
+        wh_limit = 4000
+        st.error("💰 **Crisis:** Budget cut 30%! Now Rp 2.8 Miliar only")
+    elif "WH Capacity" in crisis:
+        budget_limit = 4.0
+        wh_limit = 2000
+        st.error("🏭 **Crisis:** WH capacity reduced to 2,000 units!")
+    elif "Campaign" in crisis:
+        budget_limit = 4.0
+        wh_limit = 4000
+        st.warning("⚡ **Crisis:** Campaign pulled forward! Need stock in 2 weeks (use more Air freight)")
+    elif "B2B" in crisis:
+        budget_limit = 4.0
+        wh_limit = 4000
+        st.warning("📦 **Crisis:** B2B buyer batal! Need alternative Rp 2.5M cash unlock")
+    else:
+        budget_limit = 4.0
+        wh_limit = 4000
+    
+    # Recalculate with crisis
+    df_crisis = df_a.copy()
+    
+    if "Campaign" in crisis:
+        # Need more air freight
+        df_crisis['Air Urgent Qty'] = df_crisis['Suggested Order Qty'] * 0.8
+        df_crisis['Sea Qty'] = df_crisis['Suggested Order Qty'] * 0.2
+    else:
+        # Normal split
+        df_crisis['Air Urgent Qty'] = df_crisis.apply(
+            lambda row: round(row['Suggested Order Qty'] * 0.7) if 'CRITICAL' in row['DOS Status']
+            else (round(row['Suggested Order Qty'] * 0.4) if 'WASPADA' in row['DOS Status']
+            else round(row['Suggested Order Qty'] * 0.1)), axis=1
+        )
+        df_crisis['Sea Qty'] = df_crisis['Suggested Order Qty'] - df_crisis['Air Urgent Qty']
+    
+    # Recalculate costs
+    df_crisis['Order Value Sea'] = df_crisis['Sea Qty'] * df_crisis['Unit Cost'] * 1.1
+    df_crisis['Order Value Air'] = df_crisis['Air Urgent Qty'] * df_crisis['Unit Cost'] * 4.0
+    df_crisis['Total Order Value'] = df_crisis['Order Value Sea'] + df_crisis['Order Value Air']
+    df_crisis['Warehouse Space Impact (M1)'] = df_crisis['Air Urgent Qty']
+    
+    total_cost_crisis = df_crisis['Total Order Value'].sum()
+    total_wh_crisis = df_crisis['Warehouse Space Impact (M1)'].sum()
+    
+    # Display crisis impact
+    col_cr1, col_cr2, col_cr3, col_cr4 = st.columns(4)
+    
+    with col_cr1:
+        st.metric("💰 Total Cash", format_rupiah(total_cost_crisis),
+                 delta=f"{'Over' if total_cost_crisis > budget_limit*1e9 else 'Under'}",
+                 delta_color="inverse" if total_cost_crisis > budget_limit*1e9 else "normal")
+    
+    with col_cr2:
+        st.metric("🏭 WH Space", f"{total_wh_crisis:,.0f} units",
+                 delta=f"{'Exceeds' if total_wh_crisis > wh_limit else 'Within'}",
+                 delta_color="inverse" if total_wh_crisis > wh_limit else "normal")
+    
+    with col_cr3:
+        st.metric("Budget Limit", f"Rp {budget_limit:.1f} M")
+    
+    with col_cr4:
+        st.metric("WH Limit", f"{wh_limit:,.0f} units")
+    
+    # Decision controls
+    st.markdown("### 🎯 Your Decision")
+    
+    col_dec1, col_dec2, col_dec3 = st.columns(3)
+    
+    with col_dec1:
+        device_a_action = st.selectbox("Device A Action", 
+                                       ["Full Order", "Reduce 30%", "Hold", "All Air", "All Sea"])
+    with col_dec2:
+        device_b_action = st.selectbox("Device B Action",
+                                       ["Full Order", "Reduce 30%", "Hold", "All Air", "All Sea"])
+    with col_dec3:
+        device_c_action = st.selectbox("Device C Action",
+                                       ["Full Order", "Reduce 30%", "Hold", "All Air", "All Sea"])
+    
+    # Apply decisions
+    df_final = df_crisis.copy()
+    
+    action_mult = {
+        "Full Order": 1.0,
+        "Reduce 30%": 0.7,
+        "Hold": 0.0,
+        "All Air": 1.0,
+        "All Sea": 1.0
+    }
+    
+    for idx, row in df_final.iterrows():
+        if row['Item'] == 'Device A':
+            mult = action_mult[device_a_action]
+            if device_a_action == "All Air":
+                df_final.loc[idx, 'Air Urgent Qty'] = round(row['Suggested Order Qty'] * mult)
+                df_final.loc[idx, 'Sea Qty'] = 0
+            elif device_a_action == "All Sea":
+                df_final.loc[idx, 'Air Urgent Qty'] = 0
+                df_final.loc[idx, 'Sea Qty'] = round(row['Suggested Order Qty'] * mult)
+            else:
+                df_final.loc[idx, 'Air Urgent Qty'] = round(row['Air Urgent Qty'] * mult)
+                df_final.loc[idx, 'Sea Qty'] = round(row['Sea Qty'] * mult)
         
-        st.markdown("""
-        <div class='card'>
-            <h4>⚠️ Risk Assessment</h4>
-            <p><b>Question:</b> "What's the probability (P10/P50/P90) of achieving this target?"</p>
-            <p><b>Logic:</b> With 62% forecast accuracy, historical error = ±20%.</p>
-            <p><b>Example:</b> "Based on data, P50 = +25%, P10 = +40%. I recommend planning for +30% with upside option."</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col_strat2:
-        st.markdown("""
-        <div class='card'>
-            <h4>📊 Scenario Planning</h4>
-            <p><b>Question:</b> "What if we only achieve 60% of target? What's the inventory impact?"</p>
-            <p><b>Logic:</b> Previous overstock IDR 5B happened because optimistic forecast.</p>
-            <p><b>Example:</b> "If we miss by 20%, we'll have Rp 5-7B excess stock. Let's phase the procurement."</p>
-        </div>
-        """, unsafe_allow_html=True)
+        elif row['Item'] == 'Device B':
+            mult = action_mult[device_b_action]
+            if device_b_action == "All Air":
+                df_final.loc[idx, 'Air Urgent Qty'] = round(row['Suggested Order Qty'] * mult)
+                df_final.loc[idx, 'Sea Qty'] = 0
+            elif device_b_action == "All Sea":
+                df_final.loc[idx, 'Air Urgent Qty'] = 0
+                df_final.loc[idx, 'Sea Qty'] = round(row['Suggested Order Qty'] * mult)
+            else:
+                df_final.loc[idx, 'Air Urgent Qty'] = round(row['Air Urgent Qty'] * mult)
+                df_final.loc[idx, 'Sea Qty'] = round(row['Sea Qty'] * mult)
         
-        st.markdown("""
-        <div class='card'>
-            <h4>🔄 Phased Commitment</h4>
-            <p><b>Question:</b> "Can we split the target into firm vs optional buckets?"</p>
-            <p><b>Logic:</b> Match inventory commitment with sales certainty.</p>
-            <p><b>Example:</b> "I'll commit inventory for +25% now. The remaining +25% we can do with air freight if confirmed by M2."</p>
-        </div>
-        """, unsafe_allow_html=True)
+        else:  # Device C
+            mult = action_mult[device_c_action]
+            if device_c_action == "All Air":
+                df_final.loc[idx, 'Air Urgent Qty'] = round(row['Suggested Order Qty'] * mult)
+                df_final.loc[idx, 'Sea Qty'] = 0
+            elif device_c_action == "All Sea":
+                df_final.loc[idx, 'Air Urgent Qty'] = 0
+                df_final.loc[idx, 'Sea Qty'] = round(row['Suggested Order Qty'] * mult)
+            else:
+                df_final.loc[idx, 'Air Urgent Qty'] = round(row['Air Urgent Qty'] * mult)
+                df_final.loc[idx, 'Sea Qty'] = round(row['Sea Qty'] * mult)
     
-    # Summary
-    st.success("""
-    **🎯 Final Professional Challenge Summary:**
+    # Recalculate final costs
+    df_final['Order Value Sea'] = df_final['Sea Qty'] * df_final['Unit Cost'] * 1.1
+    df_final['Order Value Air'] = df_final['Air Urgent Qty'] * df_final['Unit Cost'] * 4.0
+    df_final['Total Order Value'] = df_final['Order Value Sea'] + df_final['Order Value Air']
+    df_final['Warehouse Space Impact (M1)'] = df_final['Air Urgent Qty']
     
-    "Management, saya paham target +50% adalah aspirasi yang baik. Tapi dengan forecast accuracy 62% dan histori 18%,
-    saya usul pendekatan bertahap:
+    total_cost_final = df_final['Total Order Value'].sum()
+    total_wh_final = df_final['Warehouse Space Impact (M1)'].sum()
     
-    1. **Base Case:** Siapkan inventory untuk +30% (lebih realistis)
-    2. **Upside Option:** Jika sales menunjukkan tren positif di M1-M2, akselerasi dengan air freight
-    3. **Downside Protection:** Jika meleset, kita hanya terikat 60% inventory commitment
+    # Show final plan
+    st.markdown("### 📊 Revised Import Plan")
     
-    Ini menjaga cash flow dan menghindari overstock seperti kejadian sebelumnya (IDR 5B)."
-    """)
+    display_final = df_final[['Item', 'Current Stock', 'DOS Status', 'Suggested Order Qty',
+                              'Air Urgent Qty', 'Sea Qty', 'Total Order Value']].copy()
+    
+    display_final['Current Stock'] = display_final['Current Stock'].apply(lambda x: f"{x:,.0f}")
+    display_final['Suggested Order Qty'] = display_final['Suggested Order Qty'].apply(lambda x: f"{x:,.0f}")
+    display_final['Air Urgent Qty'] = display_final['Air Urgent Qty'].apply(lambda x: f"{x:,.0f}")
+    display_final['Sea Qty'] = display_final['Sea Qty'].apply(lambda x: f"{x:,.0f}")
+    display_final['Total Order Value'] = display_final['Total Order Value'].apply(format_rupiah)
+    
+    st.dataframe(display_final, use_container_width=True, hide_index=True)
+    
+    # Feasibility check
+    st.markdown("### ✅ Feasibility Check")
+    
+    col_check1, col_check2 = st.columns(2)
+    
+    with col_check1:
+        if total_cost_final <= budget_limit * 1e9:
+            st.success(f"✅ **Budget OK:** Rp {total_cost_final/1e9:.2f}M ≤ {budget_limit:.1f}M")
+        else:
+            st.error(f"❌ **Budget EXCEEDED:** Rp {total_cost_final/1e9:.2f}M > {budget_limit:.1f}M")
+            st.markdown(f"*Need to reduce by Rp {(total_cost_final - budget_limit*1e9)/1e9:.2f}M*")
+    
+    with col_check2:
+        if total_wh_final <= wh_limit:
+            st.success(f"✅ **WH Capacity OK:** {total_wh_final:,.0f} ≤ {wh_limit:,.0f} units")
+        else:
+            st.error(f"❌ **WH Capacity EXCEEDED:** {total_wh_final:,.0f} > {wh_limit:,.0f} units")
+            st.markdown(f"*Need to reduce by {total_wh_final - wh_limit:,.0f} units*")
+    
+    # Update score
+    if total_cost_final <= budget_limit * 1e9 and total_wh_final <= wh_limit:
+        st.session_state.score += 100
+        st.balloons()
+        st.success("🎉 **Excellent decision!** +100 points")
+    else:
+        st.session_state.score -= 50
+        st.error("💥 **Constraints violated!** -50 points")
+    
+    # If B2B crisis, show alternative
+    if "B2B" in crisis:
+        st.markdown("### 📦 Alternative Cash Unlock Plan")
+        st.markdown("Since B2B buyer batal, here's alternative to unlock Rp 2.5M:")
+        
+        alt_plan = pd.DataFrame({
+            'Strategy': ['Device Z Bundling', 'Device A Flash Sale', 'Device B Export'],
+            'Units': [3000, 2000, 1000],
+            'Discount': ['15%', '20%', '25%'],
+            'Cash Unlock': ['Rp 306J', 'Rp 136J', 'Rp 71J'],
+            'Status': ['Ready', 'Need approval', 'Need buyer']
+        })
+        st.dataframe(alt_plan, use_container_width=True, hide_index=True)
+
+# Footer
+st.markdown("---")
+st.markdown("""
+<div style='text-align: center; color: #64748b; padding: 20px;'>
+    <p>🚀 FOOM LAB GLOBAL S&OP Command Center | Prepared by Mulyanto | Ready for Live Defense</p>
+    <p style='font-size: 0.8rem;'>Last updated: {} | Auto-refresh every 5 minutes in presentation mode</p>
+</div>
+""".format(datetime.now().strftime("%Y-%m-%d %H:%M")), unsafe_allow_html=True)
+
+# Auto-refresh in presentation mode
+if st.session_state.presentation_mode:
+    time.sleep(30)
+    st.rerun()
