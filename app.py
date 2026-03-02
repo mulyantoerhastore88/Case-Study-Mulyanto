@@ -420,18 +420,25 @@ with tab1:
         total_inv = df_a['Stock Value'].sum()
         total_stock = df_a['Current Stock'].sum()
         kritis_count = len(df_a[df_a['DOS Status'].str.contains('CRITICAL|KRITIS', case=False, na=False)])
+        overstock_count = len(df_a[df_a['DOS Status'].str.contains('OVERSTOCK', case=False, na=False)]) # <-- HITUNGAN OVERSTOCK BARU
         aman_count = len(df_a[df_a['DOS Status'].str.contains('SAFE|AMAN|WASPADA', case=False, na=False)])
         
         st.markdown("<br>", unsafe_allow_html=True) # Memberi jarak dari tabel
-        col_met1, col_met2, col_met3, col_met4 = st.columns(4)
+        
+        # KITA BAGI MENJADI 5 KOLOM AGAR SEMUANYA MASUK
+        col_met1, col_met2, col_met3, col_met4, col_met5 = st.columns(5)
+        
         with col_met1:
-            animated_metric_card("Total Inventory Value", f"Rp {total_inv/1e9:.2f} M", "+ Aset Berjalan", "💰", "#3b82f6")
+            animated_metric_card("Total Inventory", f"Rp {total_inv/1e9:.2f} M", "Aset Berjalan", "💰", "#3b82f6")
         with col_met2:
-            animated_metric_card("Total Stock (Units)", f"{total_stock:,.0f}", "Units in WH", "📦", "#8b5cf6")
+            animated_metric_card("Total Stock", f"{total_stock:,.0f}", "Units in WH", "📦", "#8b5cf6")
         with col_met3:
-            animated_metric_card("SKU Kritis", str(kritis_count), "Perlu Eksekusi", "⚠️", "#ef4444")
+            animated_metric_card("SKU Kritis", str(kritis_count), "Urgent Air", "⚠️", "#ef4444")
         with col_met4:
-            animated_metric_card("SKU Aman/Waspada", str(aman_count), "Status Terkendali", "✅", "#10b981")
+            # KARTU BARU UNTUK OVERSTOCK (Berwarna Oranye Peringatan)
+            animated_metric_card("SKU Overstock", str(overstock_count), "Hold PO/Promo", "⛔", "#f59e0b")
+        with col_met5:
+            animated_metric_card("SKU Aman", str(aman_count), "Terkendali", "✅", "#10b981")
 
 
     # ===== PART 5 (PERBAIKAN VISUAL): IMPORT PLAN & COST SIMULATION =====
