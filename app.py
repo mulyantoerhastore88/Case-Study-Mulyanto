@@ -166,6 +166,56 @@ except Exception as e:
     st.error(f"❌ Koneksi GSheet Gagal: {e}")
     st.stop()
 
+# ==================== FITUR PREMIUM: SMART ALERT & METRIC CARD ====================
+def check_alerts():
+    alerts = []
+    if 'DOS Status' in df_a.columns:
+        critical_stock = df_a[df_a['DOS Status'].str.contains('CRITICAL|KRITIS', na=False, case=False)]
+        for _, row in critical_stock.iterrows():
+            alerts.append({'type': 'critical', 'msg': f"⚠️ Urgent: {row['Item']} sisa {row['DOS (Days)']:.0f} hari!"})
+        
+        overstock = df_a[df_a['DOS Status'].str.contains('OVERSTOCK', na=False, case=False)]
+        for _, row in overstock.iterrows():
+            alerts.append({'type': 'warning', 'msg': f"📦 Overstock: Hold PO {row['Item']}."})
+    return alerts
+
+with st.sidebar:
+    st.markdown("## 🚨 Command Center")
+    alerts = check_alerts()
+    if alerts:
+        with st.expander(f"🔴 Active Alerts ({len(alerts)})", expanded=True):
+            for alert in alerts:
+                if alert['type'] == 'critical': st.error(alert['msg'])
+                else: st.warning(alert['msg'])
+    else:
+        st.success("✅ All Systems Normal")
+        
+    st.markdown("---")
+    st.markdown("### 🖨️ Quick Actions")
+    if st.button("Export Presentation (PDF)", use_container_width=True):
+        st.success("Gunakan fitur Print Browser (Ctrl+P) lalu 'Save as PDF' untuk hasil terbaik!")
+
+def animated_metric_card(title, value, delta=None, icon="📊", color="#3b82f6"):
+    delta_html = ""
+    if delta:
+        delta_color = "#10b981" if "+" in str(delta) or "Aman" in str(delta) else "#ef4444"
+        delta_html = f'<p style="color: {delta_color}; margin:0; font-size:0.9rem; font-weight:bold;">{delta}</p>'
+    
+    st.markdown(f"""
+    <div class="card" style="padding: 15px; border-left: 5px solid {color}; height: 100%; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div>
+                <p style="color: #64748b; margin:0; font-size:0.9rem; font-weight:600;">{title}</p>
+                <h3 style="color: {color}; margin:5px 0; font-size:1.8rem;">{value}</h3>
+                {delta_html}
+            </div>
+            <div style="font-size:2.2rem; opacity:0.3;">{icon}</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ==================================================================================
+
 # --- HEADER ---
 st.markdown("<div class='main-header'><h1>🚀 FOOM LAB GLOBAL: S&OP Command Center (Case Study_Mulyanto)</h1><p>Strategic Supply & Demand Validation System | Mulyanto</p></div>", unsafe_allow_html=True)
 
@@ -366,21 +416,22 @@ with tab1:
         
         st.dataframe(display_health, use_container_width=True, hide_index=True)
         
-        # Metrik Summary
+        # Metrik Summary (Menggunakan Animated Cards)
         total_inv = df_a['Stock Value'].sum()
         total_stock = df_a['Current Stock'].sum()
         kritis_count = len(df_a[df_a['DOS Status'].str.contains('CRITICAL|KRITIS', case=False, na=False)])
-        aman_count = len(df_a[df_a['DOS Status'].str.contains('SAFE|AMAN|WASPADA', case=False, na=False)]) # Asumsi waspada masih aman
+        aman_count = len(df_a[df_a['DOS Status'].str.contains('SAFE|AMAN|WASPADA', case=False, na=False)])
         
+        st.markdown("<br>", unsafe_allow_html=True) # Memberi jarak dari tabel
         col_met1, col_met2, col_met3, col_met4 = st.columns(4)
         with col_met1:
-            st.metric("💰 Total Inventory Value", f"Rp {total_inv:,.0f}")
+            animated_metric_card("Total Inventory Value", f"Rp {total_inv/1e9:.2f} M", "+ Aset Berjalan", "💰", "#3b82f6")
         with col_met2:
-            st.metric("📦 Total Stock (units)", f"{total_stock:,.0f}")
+            animated_metric_card("Total Stock (Units)", f"{total_stock:,.0f}", "Units in WH", "📦", "#8b5cf6")
         with col_met3:
-            st.metric("⚠️ SKU Kritis", kritis_count)
+            animated_metric_card("SKU Kritis", str(kritis_count), "Perlu Eksekusi", "⚠️", "#ef4444")
         with col_met4:
-            st.metric("✅ SKU Aman", aman_count)
+            animated_metric_card("SKU Aman/Waspada", str(aman_count), "Status Terkendali", "✅", "#10b981")
 
 
     # ===== PART 5 (PERBAIKAN VISUAL): IMPORT PLAN & COST SIMULATION =====
