@@ -833,10 +833,10 @@ with tab3:
         
         st.info(f"🎯 **Management Challenge:** Target Growth **{target_growth}** | Historical Growth **{hist_growth}** | Previous Decision Issue: **{prev_fail}**")
 
-        col_c1, col_c2 = st.columns([2, 1])
+        col_c1, col_c2 = st.columns([1.2, 1])
         
         with col_c1:
-            st.markdown("#### 📅 Monthly S&OP Cadence")
+            st.markdown("#### 🗓️ Monthly S&OP Cadence")
             st.dataframe(df_cadence[['Week', 'Task', 'Owner', 'Output']], use_container_width=True, hide_index=True)
             
             st.markdown("#### 📊 S&OP Timeline")
@@ -849,12 +849,36 @@ with tab3:
                 title="S&OP Monthly Cycle", 
                 color_discrete_map={'Sales & Marketing': '#3b82f6', 'Supply Chain': '#10b981', 'Demand + Supply Lead': '#f59e0b', 'Management': '#ef4444'}
             )
-            fig_timeline.update_layout(xaxis=dict(title="Timeline", tickformat="%d %b"), yaxis=dict(title="", autorange="reversed"), height=300, showlegend=True)
+            fig_timeline.update_layout(xaxis=dict(title="Timeline", tickformat="%d %b"), yaxis=dict(title="", autorange="reversed"), height=300, showlegend=True, margin=dict(t=30, b=0, l=0, r=0))
             st.plotly_chart(fig_timeline, use_container_width=True)
             
         with col_c2:
             st.markdown("#### 🎯 KPI Dashboard")
-            st.dataframe(df_kpi, use_container_width=True, hide_index=True)
+            
+            # --- LOGIKA OTOMATIS KOLOM STATUS ---
+            def calculate_status(row):
+                try:
+                    kpi = str(row['KPI']).strip()
+                    curr = float(str(row['Current']).replace('%', '').strip())
+                    tgt = float(str(row['Target']).replace('%', '').strip())
+                    
+                    # Logika khusus Cash-to-Cash (Semakin kecil nilainya, semakin baik)
+                    if kpi == 'Cash-to-Cash': 
+                        if curr <= tgt: return '🟢 On Track'
+                        elif curr <= tgt * 1.15: return '🟡 At Risk'
+                        else: return '🔴 Off Track'
+                    # Logika KPI lainnya (Semakin besar nilainya, semakin baik)
+                    else: 
+                        if curr >= tgt: return '🟢 On Track'
+                        elif curr >= tgt * 0.85: return '🟡 At Risk'
+                        else: return '🔴 Off Track'
+                except:
+                    return '⚪ Review'
+
+            display_kpi = df_kpi.copy()
+            display_kpi['Status'] = display_kpi.apply(calculate_status, axis=1)
+            
+            st.dataframe(display_kpi, use_container_width=True, hide_index=True)
             
             # PERBAIKAN GAUGE: Ambil nilai dengan aman
             try:
