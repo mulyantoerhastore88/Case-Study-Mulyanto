@@ -977,31 +977,29 @@ with tab3:
         </div>
         """, unsafe_allow_html=True)
 
-        # ===== IMPLEMENTATION ROADMAP =====
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("#### 🚀 Implementation Roadmap")
-        st.info("📍 **Fase eksekusi taktis untuk mentransformasi S&OP dari reaktif menjadi proaktif dalam 4 bulan.**")
-        
-        roadmap_data = {
-            'Phase': ['Month 1', 'Month 2', 'Month 3', 'Month 4+'],
-            'Focus': ['Process Setup & Alignment', 'Pilot Run (Device C)', 'Full Implementation', 'Continuous Improvement'],
-            'Key Activities': [
-                'Define KPIs, Train cross-functional team, Setup reporting cadence',
-                'Run 2 cycles for Growth Product, Identify bottlenecks, Refine process',
-                'Roll out to all categories (A & B), Initiate Executive S&OP reviews',
-                'Monthly audits, System automation (GSheet to ERP), AI integration'
-            ],
-            'Expected Outcome': [
-                'Clear SOP documented, Roles assigned',
-                '80% meeting attendance, Initial issues mapped',
-                'Forecast Accuracy >70%, Service Level >95%',
-                'FA >85%, SL 98%, Dead Stock Ratio <5%'
-            ]
-        }
-        
-        df_roadmap = pd.DataFrame(roadmap_data)
-        
-        # Menampilkan dataframe dengan lebar penuh dan menyembunyikan nomor index
-        st.dataframe(df_roadmap, use_container_width=True, hide_index=True)
+# ===== IMPLEMENTATION ROADMAP =====
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("#### 🚀 Implementation Roadmap")
+    st.info("📍 **Fase eksekusi taktis untuk mentransformasi S&OP dari reaktif menjadi proaktif dalam 4 bulan.**")
     
+    roadmap_data = {
+        'Phase': ['Month 1', 'Month 2', 'Month 3', 'Month 4+'],
+        'Focus': ['Process Setup & Alignment', 'Pilot Run (Device C)', 'Full Implementation', 'Continuous Improvement'],
+        'Key Activities': [
+            'Define KPIs, Train cross-functional team, Setup reporting cadence',
+            'Run 2 cycles for Growth Product, Identify bottlenecks, Refine process',
+            'Roll out to all categories (A & B), Initiate Executive S&OP reviews',
+            'Monthly audits, System automation (GSheet to ERP), AI integration'
+        ],
+        'Expected Outcome': [
+            'Clear SOP documented, Roles assigned',
+            '80% meeting attendance, Initial issues mapped',
+            'Forecast Accuracy >70%, Service Level >95%',
+            'FA >85%, SL 98%, Dead Stock Ratio <5%'
+        ]
+    }
     
+    df_roadmap = pd.DataFrame(roadmap_data)
+    
+    # Menampilkan dataframe dengan lebar penuh dan menyembunyikan nomor index
+    st.dataframe(df_roadmap, use_container_width=True, hide_index=True)
