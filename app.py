@@ -355,7 +355,7 @@ with tab1:
         
         # Styling ikon status
         display_health['Status'] = display_health['Status'].apply(
-            lambda x: f"🔴 {x}" if "CRITICAL - Order Urgent" in str(x).upper() else (f"🟡 {x}" if "WASPADA" in str(x).upper() else (f"🔵 {x}" if "OVERSTOCK" in str(x).upper() else f"🟢 {x}"))
+            lambda x: f"🔴 {x}" if "CRITICAL" in str(x).upper() else (f"🟡 {x}" if "WASPADA" in str(x).upper() else (f"🔵 {x}" if "OVERSTOCK" in str(x).upper() else f"🟢 {x}"))
         )
         
         # Format angka
@@ -369,7 +369,7 @@ with tab1:
         # Metrik Summary
         total_inv = df_a['Stock Value'].sum()
         total_stock = df_a['Current Stock'].sum()
-        CRITICAL_count = len(df_a[df_a['DOS Status'].str.contains('CRITICAL - Order Urgent|CRITICAL', case=False, na=False)])
+        kritis_count = len(df_a[df_a['DOS Status'].str.contains('CRITICAL|KRITIS', case=False, na=False)])
         aman_count = len(df_a[df_a['DOS Status'].str.contains('SAFE|AMAN|WASPADA', case=False, na=False)]) # Asumsi waspada masih aman
         
         col_met1, col_met2, col_met3, col_met4 = st.columns(4)
@@ -378,7 +378,7 @@ with tab1:
         with col_met2:
             st.metric("📦 Total Stock (units)", f"{total_stock:,.0f}")
         with col_met3:
-            st.metric("⚠️ SKU CRITICAL", CRITICAL_count)
+            st.metric("⚠️ SKU Kritis", kritis_count)
         with col_met4:
             st.metric("✅ SKU Aman", aman_count)
 
@@ -672,14 +672,14 @@ with tab2:
         # --- KODE TAMBAHAN: CONTINGENCY PLAN ---
         st.markdown("---")
         st.markdown("#### 🛡️ Contingency Plan (What-If Scenarios)")
-        st.info("Antisipasi strategi jika Manajemen memberikan skenario CRITICAL dadakan saat presentasi / operasional.")
+        st.info("Antisipasi strategi jika Manajemen memberikan skenario krisis dadakan saat presentasi / operasional.")
         
         col_cp1, col_cp2, col_cp3 = st.columns(3)
         
         with col_cp1:
             st.markdown("""
             <div class='card' style='border-left: 5px solid #f59e0b;'>
-                <h4 style='color:#b45309;'>📉 CRITICAL 1: Margin Squeeze</h4>
+                <h4 style='color:#b45309;'>📉 Krisis 1: Margin Squeeze</h4>
                 <p><b>Skenario:</b> CFO menolak diskon 30%, hanya mengizinkan maksimal diskon 10-15%.</p>
                 <p><b>Plan B (Gunakan Slider):</b> Tunjukkan secara <i>live</i> bahwa diskon pelit (10%) akan melambatkan serapan. Jika hanya laku 50%, Cash Unlock cuma Rp 891 Juta. Lempar keputusan ke Manajemen: <i>"Pilih selamatkan Margin 38% atau capai target Cash 5 Miliar?"</i></p>
             </div>
@@ -688,7 +688,7 @@ with tab2:
         with col_cp2:
             st.markdown("""
             <div class='card' style='border-left: 5px solid #ef4444;'>
-                <h4 style='color:#b91c1c;'>🚨 CRITICAL 2: B2B Buyer Batal</h4>
+                <h4 style='color:#b91c1c;'>🚨 Krisis 2: B2B Buyer Batal</h4>
                 <p><b>Skenario:</b> Kesepakatan Export/Borongan senilai Rp 2.5 Miliar batal secara tiba-tiba.</p>
                 <p><b>Plan B:</b> Alihkan beban target ke kategori <i>'Slow Moving'</i>. Ubah strategi E-Commerce dari sekadar Flash Sale biasa menjadi <b>Mega Clearance (Diskon 40-50%)</b> untuk langsung melikuidasi Rp 8.75 Miliar aset guna menutup lubang 2.5 Miliar.</p>
             </div>
@@ -697,7 +697,7 @@ with tab2:
         with col_cp3:
             st.markdown("""
             <div class='card' style='border-left: 5px solid #3b82f6;'>
-                <h4 style='color:#1d4ed8;'>⏱️ CRITICAL 3: Cash 30-Day Sprint</h4>
+                <h4 style='color:#1d4ed8;'>⏱️ Krisis 3: Cash 30-Day Sprint</h4>
                 <p><b>Skenario:</b> Perusahaan tidak bisa menunggu 90 hari, butuh suntikan tunai Rp 3 Miliar di 30 hari pertama.</p>
                 <p><b>Plan B:</b> Akselerasi <b>B2B Wholesale</b> di minggu pertama. Penjualan ritel (Bundling/Flash Sale) butuh waktu <i>ramp-up</i> untuk laku harian. B2B adalah transaksi <i>'Take-All'</i> (1x invoice langsung cair besar).</p>
             </div>
