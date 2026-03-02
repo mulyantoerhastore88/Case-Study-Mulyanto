@@ -355,7 +355,7 @@ with tab1:
         
         # Styling ikon status
         display_health['Status'] = display_health['Status'].apply(
-            lambda x: f"🔴 {x}" if "CRITICAL-Order Urgent" in str(x).upper() else (f"🟡 {x}" if "WASPADA-Review Needed" in str(x).upper() else (f"🔵 {x}" if "OVERSTOCK-Hold Order" in str(x).upper() else f"🟢 {x}"))
+            lambda x: f"🔴 {x}" if "CRITICAL" in str(x).upper() else (f"🟡 {x}" if "WASPADA" in str(x).upper() else (f"🔵 {x}" if "OVERSTOCK" in str(x).upper() else f"🟢 {x}"))
         )
         
         # Format angka
