@@ -939,40 +939,40 @@ with tab3:
 
     st.markdown("---")
     
-    # MENAMPILKAN STRATEGY & KESIMPULAN DARI GSHEET
+    # MENAMPILKAN STRATEGY DARI GSHEET DENGAN UI 2x2 GRID PREMIUM
     st.markdown("#### 🛡️ Sales Forecast Challenge Strategy")
-    st.warning(" How to challenge Sales forecast professionally:")
+    st.info("💡 **Taktik Profesional (S&OP Playbook) untuk merespons target Sales yang agresif secara elegan:**")
     
     col_strat1, col_strat2 = st.columns(2)
     
-    # Looping data dari GSheet untuk membuat Card
+    # KARTU KIRI (Pillar 1 & 3)
     with col_strat1:
         st.markdown(f"""
-        <div class='card'>
-            <h4>🔍 {df_strat.iloc[0]['Strategy Pillar']}</h4>
-            <p>{df_strat.iloc[0]['Explanation & Response to Management']}</p>
+        <div class='card' style='border-left: 5px solid #3b82f6;'>
+            <h4 style='color:#1e40af;'>🔍 {df_strat.iloc[0]['Strategy Pillar']}</h4>
+            <p style='margin-bottom:0;'>{df_strat.iloc[0]['Explanation & Response to Management']}</p>
         </div>
         """, unsafe_allow_html=True)
         
         st.markdown(f"""
-        <div class='card'>
-            <h4>⚠️ {df_strat.iloc[1]['Strategy Pillar']}</h4>
-            <p>{df_strat.iloc[1]['Explanation & Response to Management']}</p>
+        <div class='card' style='border-left: 5px solid #f59e0b;'>
+            <h4 style='color:#b45309;'>🤝 {df_strat.iloc[2]['Strategy Pillar']}</h4>
+            <p style='margin-bottom:0;'>{df_strat.iloc[2]['Explanation & Response to Management']}</p>
         </div>
         """, unsafe_allow_html=True)
         
+    # KARTU KANAN (Pillar 2 & 4)
     with col_strat2:
         st.markdown(f"""
-        <div class='card'>
-            <h4>🔄 {df_strat.iloc[2]['Strategy Pillar']}</h4>
-            <p>{df_strat.iloc[2]['Explanation & Response to Management']}</p>
+        <div class='card' style='border-left: 5px solid #ef4444;'>
+            <h4 style='color:#b91c1c;'>📊 {df_strat.iloc[1]['Strategy Pillar']}</h4>
+            <p style='margin-bottom:0;'>{df_strat.iloc[1]['Explanation & Response to Management']}</p>
         </div>
         """, unsafe_allow_html=True)
         
-        # KESIMPULAN KINI DINAMIS DARI GSHEET (Index 3 / Baris ke-4 di tabel Blok 4)
         st.markdown(f"""
         <div class='card' style='border-left: 5px solid #10b981;'>
-            <h4 style='color:#10b981;'>{df_strat.iloc[3]['Strategy Pillar']}</h4>
-            <p><i>"{df_strat.iloc[3]['Explanation & Response to Management']}"</i></p>
+            <h4 style='color:#047857;'>🚀 {df_strat.iloc[3]['Strategy Pillar']}</h4>
+            <p style='margin-bottom:0;'><i>"{df_strat.iloc[3]['Explanation & Response to Management']}"</i></p>
         </div>
         """, unsafe_allow_html=True)
