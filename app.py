@@ -396,11 +396,25 @@ with tab1:
             wh_utilization = st.progress(85, text="WH Utilization: 85% (51,000 / 60,000 units)")
             st.caption("Sisa kapasitas aman untuk batch ini: **4,000 units**")
 
-    # Tarik data eksekusi
-    order_cols = ['Item', 'Current Stock', 'DOS (Days)', 'M1', 'Suggested Order Qty', 'Air Urgent Qty', 'Sea Qty', 'Route (Sea/Air)', 'Total Order Value']
+    # Tarik data eksekusi (TAMBAHAN SCENARIO 'Unit Cost' UNTUK KALKULASI DINAMIS)
+    order_cols = ['Item', 'Current Stock', 'DOS (Days)', 'M1', 'Suggested Order Qty', 'Air Urgent Qty', 'Sea Qty', 'Route (Sea/Air)', 'Unit Cost']
     
     if all(c in df_a.columns for c in order_cols):
         display_order = df_a[order_cols].copy()
+        
+        # --- 🧮 KALKULASI COST DINAMIS BERDASARKAN INPUT WIDGET ---
+        sea_multiplier = 1 + (sea_cost_pct / 100.0)
+        air_multiplier = air_cost_mult
+        
+        # Menghitung ulang Total Cost secara live
+        display_order['Total_Cost'] = (
+            (display_order['Air Urgent Qty'] * display_order['Unit Cost'] * air_multiplier) +
+            (display_order['Sea Qty'] * display_order['Unit Cost'] * sea_multiplier)
+        )
+        
+        # Buang kolom 'Unit Cost' karena tidak perlu ditampilkan di tabel akhir
+        display_order = display_order.drop(columns=['Unit Cost'])
+        # -----------------------------------------------------------
         
         # Rename persis seperti gambar
         display_order.rename(columns={
@@ -408,8 +422,7 @@ with tab1:
             'Suggested Order Qty': 'Order_Qty',
             'Air Urgent Qty': 'Air_Qty',
             'Sea Qty': 'Sea_Qty',
-            'Route (Sea/Air)': 'Route',
-            'Total Order Value': 'Total_Cost'
+            'Route (Sea/Air)': 'Route'
         }, inplace=True)
         
         # Logika modifikasi teks 'Route' agar berikon dan detail seperti di gambar
@@ -420,7 +433,10 @@ with tab1:
             else "⏸️ TUNDA")), axis=1
         )
         
-        # Format angka string
+        # Simpan nilai total cost asli (numeric) sebelum diubah jadi string teks Rp.
+        total_dynamic_cost = display_order['Total_Cost'].sum()
+        
+        # Format angka string agar rapi
         for col in ['Current Stock', 'DOS', 'M1', 'Order_Qty', 'Air_Qty', 'Sea_Qty']:
             display_order[col] = display_order[col].apply(lambda x: f"{x:,.0f}")
         display_order['Total_Cost'] = display_order['Total_Cost'].apply(lambda x: f"Rp {x:,.0f}" if x > 0 else "Rp 0")
@@ -428,8 +444,8 @@ with tab1:
         st.dataframe(display_order, use_container_width=True, hide_index=True)
         
         # KODE INI UNTUK MENGHITUNG LIMIT ---
-        # Metrik Summary Limit (Variabel ini dibutuhkan untuk Part 6 Live Scenario)
-        total_cost_miliar = df_a['Total Order Value'].sum() / 1_000_000_000
+        # Metrik Summary Limit SEKARANG MEMBACA HASIL KALKULASI DINAMIS
+        total_cost_miliar = total_dynamic_cost / 1_000_000_000
         total_wh_impact = df_a['Warehouse Space Impact (M1)'].sum()
         
         col_rec1, col_rec2 = st.columns(2)
