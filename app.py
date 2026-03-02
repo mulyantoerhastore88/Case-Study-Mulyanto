@@ -685,9 +685,22 @@ with tab2:
         
         display_scen = df_scen.copy()
         
-        # Format Kolom Persentase
+        # Format Kolom Persentase 
+        def safe_format_pct(val):
+            val_str = str(val).strip()
+            try:
+                num = float(val_str.replace('%', '').strip())
+                # Jika tidak ada logo % dari GSheet dan angkanya desimal murni (antara -1 s.d 1), kalikan 100
+                if '%' not in val_str and -1 <= num <= 1:
+                    return f"{num * 100:.2f}%"
+                # Jika angkanya sudah puluhan (misal -11.11 atau 44.44), langsung pasang %
+                else:
+                    return f"{num:.2f}%"
+            except:
+                return val_str
+
         for col in ['Discount Rate', 'Margin After Discount']:
-            display_scen[col] = display_scen[col].apply(lambda x: f"{float(str(x).replace('%','').strip()) * 100:.2f}%" if float(str(x).replace('%','').strip()) < 1 else f"{float(str(x).replace('%','').strip()):.2f}%")
+            display_scen[col] = display_scen[col].apply(safe_format_pct)
             
         # Format Kolom Uang
         for col in ['Units to Liquidate', 'Discounted Price', 'Revenue (Cash Unlock)', 'Gross Profit', 'Margin Erosion (IDR)']:
