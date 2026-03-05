@@ -673,7 +673,7 @@ with tab2:
             st.markdown("""<div style='background-color:#f8fafc; padding:15px; border-radius:8px; border:1px solid #cbd5e1;'><h4 style='margin-top:0; color:#334155;'>📊 Stock & Value</h4><table style='width:100%'><tr><td>Current Stock</td><td><b>{:,} units</b></td></tr><tr><td>Inventory Value</td><td><b>Rp {:.2f} Miliar</b></td></tr><tr><td>Unit Cost (HPP)</td><td><b>Rp {:,.0f}</b></td></tr></table></div>""".format(stock_z, inv_value_z/1e9, unit_cost_z), unsafe_allow_html=True)
         
         with col_z_detail2:
-            st.markdown("""<div style='background-color:#f8fafc; padding:15px; border-radius:8px; border:1px solid #cbd5e1;'><h4 style='margin-top:0; color:#334155;'>💰 Sales & Margin</h4><table style='width:100%'><tr><td>Harga Jual Estimasi</td><td><b>Rp {:,.0f}</b></td></tr><tr><td>Margin Normal</td><td><b style='color:#22c55e;'>{:.1f}%</b></td></tr><tr><td>Monthly Sales Velocity</td><td><b>{:.0f} units/mo</b></td></tr></table></div>""".format(est_sell_price, normal_margin, monthly_sales_z), unsafe_allow_html=True)
+            st.markdown("""<div style='background-color:#f8fafc; padding:15px; border-radius:8px; border:1px solid #cbd5e1;'><h4 style='margin-top:0; color:#334155;'>💰 Sales & Margin</h4><table style='width:100%'><tr><td>Harga Jual (Asumsi)</td><td><b>Rp {:,.0f}</b></td></tr><tr><td>Margin Normal</td><td><b style='color:#22c55e;'>{:.1f}%</b></td></tr><tr><td>Monthly Sales Velocity</td><td><b>{:.0f} units/mo</b></td></tr></table></div>""".format(est_sell_price, normal_margin, monthly_sales_z), unsafe_allow_html=True)
             
         with col_z_detail3:
             stock_at_launch = stock_z - (monthly_sales_z * 3) 
