@@ -545,9 +545,9 @@ with tab1:
     
     # Hitung kelayakan skenario berdasarkan data asli GSheet
     if total_cost_miliar > budget_limit or total_wh_impact > wh_capacity:
-        st.error(f"🚨 **SKENARIO GAGAL!** Tagihan (Rp {total_cost_miliar:.2f}M / {total_wh_impact:,.0f} unit) melebihi batas baru. Rekomendasi: Tahan/Hold order Prioritas 2 (Device A).")
+        st.error(f"🚨 **BUDGET TIDAK CUKUP/OVERCAPACITY!** Tagihan (Rp {total_cost_miliar:.2f}M / {total_wh_impact:,.0f} unit) melebihi Budget. Rekomendasi: Tahan/Hold order Prioritas 2 (Device A).")
     else:
-        st.success("✅ **SKENARIO AMAN!** Skenario ini masih sanggup dieksekusi dengan Plan saat ini.")
+        st.success("✅ **BUDGET & WH CAPACITY AMAN!** Skenario ini masih dapat dieksekusi sesuai Plan.")
 
 
 # ==========================================
