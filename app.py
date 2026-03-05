@@ -525,8 +525,8 @@ with tab1:
 
     # ===== PART 6: LIVE DEFENSE SCENARIO SIMULATION =====
     st.markdown("---")
-    st.markdown("## 🎯 PART D: LIVE DEFENSE SCENARIO SIMULATION")
-    st.info("Simulasi interaktif jika Manajemen tiba-tiba memberikan konstrain mendadak saat presentasi.")
+    st.markdown("## 🎯 PART D: SCENARIO SIMULATION")
+    st.info("Simulasi interaktif & Scenario Interaktif.")
     
     scenario_type = st.radio(
         "⚡ Quick Scenario Presets:",
